@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkToken } from '@/lib/policy-engine';
 import { supabaseAdmin } from '@/lib/supabase';
-import { placeOrder } from '@/lib/shopify';
+import { defaultVariantId, placeOrder } from '@/lib/shopify';
 import type { SpendToken } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -49,7 +49,8 @@ export async function POST(req: Request) {
   // 3. place the order
   let placed;
   try {
-    placed = await placeOrder([{ variant_id: String(variant_id), quantity: 1 }]);
+    const variant = variant_id ? String(variant_id) : await defaultVariantId();
+    placed = await placeOrder([{ variant_id: variant, quantity: 1 }]);
   } catch (e) {
     const reason = e instanceof Error ? e.message : 'shopify error';
     return NextResponse.json({ ok: false, decision: 'error', reason }, { status: 502 });

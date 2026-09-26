@@ -11,7 +11,14 @@ const ACCOUNTS = {
 type Who = keyof typeof ACCOUNTS;
 
 type Consumable = { id: string; product_key: string; cadence_days: number; est_empty_date: string; source: string };
-type Token = { id: string; max_amount: string; category_scope: string; expires_at: string; status: string };
+type Token = {
+  id: string;
+  shop_id: string;
+  max_amount: string;
+  category_scope: string;
+  expires_at: string;
+  status: string;
+};
 type Audit = {
   id: string;
   action: string;
@@ -130,6 +137,9 @@ export default function Page() {
   const [consent, setConsent] = useState<Consent[]>([]);
   const [shopCount, setShopCount] = useState(0);
   const [shopNames, setShopNames] = useState<Record<string, string>>({});
+  const [userId, setUserId] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runNote, setRunNote] = useState<string | null>(null);
 
   const load = useCallback(async (key: Who) => {
     setBusy(true);
@@ -141,6 +151,8 @@ export default function Page() {
         password: PASSWORD,
       });
       if (authErr) throw authErr;
+      const { data: userData } = await sb.auth.getUser();
+      setUserId(userData.user?.id ?? null);
 
       // Every query below runs under RLS with the signed-in user's token.
       // No service-role key ever reaches the browser.
@@ -172,6 +184,68 @@ export default function Page() {
   useEffect(() => {
     void load(who);
   }, [who, load]);
+
+  async function runLoop() {
+    const token = tokens.find((t) => t.status === 'active');
+    if (!userId || !token || running) return;
+    setRunning(true);
+    setError(null);
+    setRunNote('Checking what is about to run out.');
+    try {
+      const signalRes = await fetch(`/api/signal?user_id=${userId}`);
+      const signalJson = await signalRes.json();
+      if (!signalRes.ok) throw new Error(signalJson.error ?? 'signal failed');
+      const signal = signalJson.signals?.[0];
+      if (!signal) {
+        setRunNote('Nothing is due. No order placed.');
+        return;
+      }
+
+      setRunNote(`${signal.product_key.replaceAll('_', ' ')} is ${signal.days_until_empty} days out. Comparing shops.`);
+      const compareRes = await fetch('/api/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consumable_id: signal.consumable_id,
+          max_amount: Number(token.max_amount),
+        }),
+      });
+      const compareJson = await compareRes.json();
+      if (!compareRes.ok) throw new Error(compareJson.error ?? compareJson.reason ?? 'compare failed');
+      if (compareJson.decision !== 'allow' || !compareJson.pick) {
+        setRunNote(compareJson.reason ?? 'No shop was within the cap. No order placed.');
+        await load(who);
+        return;
+      }
+
+      const pick = compareJson.pick as { shop_name: string; price: number };
+      setRunNote(`Chose ${pick.shop_name} at £${Number(pick.price).toFixed(2)}. Placing the order on the shop this token allows.`);
+      const orderRes = await fetch('/api/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token_id: token.id,
+          consumable_id: signal.consumable_id,
+          shop_id: token.shop_id,
+          amount: pick.price,
+          category: token.category_scope,
+        }),
+      });
+      const orderJson = await orderRes.json();
+      if (!orderRes.ok || !orderJson.ok) {
+        setRunNote(orderJson.reason ?? 'Order blocked.');
+        await load(who);
+        return;
+      }
+      setRunNote(`Order ${orderJson.order_ref} placed.`);
+      await load(who);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'run failed');
+      setRunNote(null);
+    } finally {
+      setRunning(false);
+    }
+  }
 
   async function revoke(id: string) {
     const sb = browserClient();
@@ -220,6 +294,26 @@ export default function Page() {
           </button>
         ))}
       </div>
+
+      {who === 'demo' && (
+        <section style={card}>
+          <div style={h2}>Run it</div>
+          <p style={sub}>Signal, then compare the shops, then order only if the live token allows it.</p>
+          <button
+            onClick={() => void runLoop()}
+            disabled={running || busy || live.length === 0}
+            style={{
+              padding: '9px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13,
+              cursor: running || busy || live.length === 0 ? 'default' : 'pointer',
+              background: running || live.length === 0 ? '#d1d5db' : '#111827',
+              color: running || live.length === 0 ? '#6b7280' : '#fff',
+            }}
+          >
+            {running ? 'Running…' : 'Run replenishment'}
+          </button>
+          {runNote && <div style={{ ...mono, marginTop: 10, color: '#374151' }}>{runNote}</div>}
+        </section>
+      )}
 
       {error && (
         <div style={{ ...card, borderColor: '#fca5a5', background: '#fef2f2', color: '#991b1b', fontSize: 13 }}>
