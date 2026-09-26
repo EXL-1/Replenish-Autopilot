@@ -78,7 +78,16 @@ export async function POST(req: Request) {
     Number.isFinite(placed.total_price) && placed.total_price > 0 ? placed.total_price : amount;
 
   // 4. persist order + audit trail
-  const { data: orderRow } = await supabaseAdmin
+  //
+  // The error is checked, deliberately. If this insert fails, Shopify has ALREADY taken
+  // the order and we cannot un-place it — so the one thing we must not do is write an
+  // audit row claiming everything succeeded. A trust layer whose audit trail can say
+  // "order placed" when no order was recorded is worse than one with no trail at all.
+  //
+  // This is not hypothetical: orders.consumable_id is ON DELETE CASCADE, so a
+  // reset:demo that recreates the consumable invalidates ids a running agent still
+  // holds, and the insert fails on the foreign key.
+  const { data: orderRow, error: orderErr } = await supabaseAdmin
     .from('orders')
     .insert({
       user_id: token.user_id,
@@ -91,6 +100,34 @@ export async function POST(req: Request) {
     .select()
     .single();
 
+  if (orderErr) {
+    console.error('[order] placed at Shopify but not persisted:', orderErr.message);
+    await supabaseAdmin.from('audit_log').insert({
+      user_id: token.user_id,
+      action: 'order.placed',
+      inputs: body,
+      options: {
+        shop_id,
+        requested_amount: amount,
+        charged_amount: charged,
+        order_ref: placed.id,
+        persisted: false,
+        error: orderErr.message,
+      },
+      choice: 'allow',
+      reason: `order ${placed.id} was placed at Shopify but NOT recorded: ${orderErr.message}`,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        decision: 'error',
+        order_ref: placed.id,
+        reason: `the order was placed at Shopify but could not be recorded: ${orderErr.message}`,
+      },
+      { status: 500 },
+    );
+  }
+
   await supabaseAdmin.from('audit_log').insert({
     user_id: token.user_id,
     action: 'order.placed',
@@ -100,6 +137,7 @@ export async function POST(req: Request) {
       requested_amount: amount,
       charged_amount: charged,
       order_ref: placed.id,
+      persisted: true,
     },
     choice: 'allow',
     reason: `within cap ${token.max_amount}, scope ${token.category_scope}`,
