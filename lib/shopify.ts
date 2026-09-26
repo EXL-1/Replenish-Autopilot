@@ -16,6 +16,38 @@ export type PlacedOrder = {
  * One-click order on the dev store (test mode). Returns the Shopify order id.
  * Critical path — no order lands without SHOPIFY_STORE_DOMAIN + SHOPIFY_ADMIN_TOKEN.
  */
+let cachedVariantId: string | null = null;
+
+/**
+ * The dev store has one catalogue item. The panel's run button does not know its
+ * variant id, so reuse the variant from the latest order, then the product list.
+ */
+export async function defaultVariantId(): Promise<string> {
+  if (cachedVariantId) return cachedVariantId;
+  if (!domain || !token) throw new Error('Shopify env vars missing');
+
+  const headers = { 'X-Shopify-Access-Token': token };
+  const base = `https://${domain}/admin/api/${apiVersion}`;
+
+  const orders = await fetch(`${base}/orders.json?limit=1&status=any`, { headers });
+  if (orders.ok) {
+    const json = await orders.json();
+    const variant = json.orders?.[0]?.line_items?.[0]?.variant_id;
+    if (variant) {
+      cachedVariantId = String(variant);
+      return cachedVariantId;
+    }
+  }
+
+  const products = await fetch(`${base}/products.json?limit=1`, { headers });
+  if (!products.ok) throw new Error(`Shopify products failed: ${products.status}`);
+  const json = await products.json();
+  const variant = json.products?.[0]?.variants?.[0]?.id;
+  if (!variant) throw new Error('No Shopify variant on the dev store');
+  cachedVariantId = String(variant);
+  return cachedVariantId;
+}
+
 export async function placeOrder(items: LineItem[], note = 'Replenish Autopilot'): Promise<PlacedOrder> {
   if (!domain || !token) throw new Error('Shopify env vars missing');
 
