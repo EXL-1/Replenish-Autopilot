@@ -494,8 +494,10 @@ export default function Page() {
         </aside>
         <main className="shell">
           <header className="hero">
-            <p className="eyebrow">Privacy panel</p>
-            <h1>Replenish Autopilot</h1>
+            <p className="eyebrow">
+              <span>Privacy panel</span>
+            </p>
+            <h1>Replenish <span>Autopilot</span></h1>
             <p className="lede">Your cart runs itself | only you can see what it knows.</p>
           </header>
 
@@ -753,7 +755,11 @@ export default function Page() {
                       </ol>
                       {olderAudit.length > 0 && (
                         <details className="older-activity">
-                          <summary>Show {olderAudit.length} earlier event{olderAudit.length === 1 ? '' : 's'}</summary>
+                          <summary>
+                            {olderAudit.length === 1
+                              ? 'Show 1 earlier event'
+                              : `Show ${olderAudit.length} earlier events`}
+                          </summary>
                           <ol className="activity-list activity-list-older">
                             {olderAudit.map((row) => (
                               <ActivityItem key={row.id} row={row} shopNames={shopNames} />

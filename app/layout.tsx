@@ -1,19 +1,19 @@
 import type { ReactNode } from 'react';
-import { Inter } from 'next/font/google';
+import { Montserrat } from 'next/font/google';
 import './panel.css';
 
-const inter = Inter({
+const montserrat = Montserrat({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-inter',
+  variable: '--font-montserrat',
 });
 
 export const metadata = { title: 'Replenish Autopilot' };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={montserrat.variable}>
+      <body className={montserrat.className}>{children}</body>
     </html>
   );
 }
