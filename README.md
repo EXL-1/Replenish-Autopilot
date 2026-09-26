@@ -157,6 +157,10 @@ Stated rather than hidden:
   component that signs in automatically so a judge can see RLS without a login step. That
   means anyone can sign in as the demo user while the site is live. Acceptable for a demo
   account; would be replaced with a real auth flow for anything else.
+- **The project's `jwt_exp` is raised to 24h for the event.** Default is 1h, which the Grok
+  Bot's stored credential would outlive mid-demo. It matters little here — the demo password
+  is already public (above), so this lengthens an already-public credential rather than
+  widening the blast radius. Reset it to `3600` after the event.
 - **Orders are test orders.** Real order objects in a real Shopify dev store, flagged
   `test: true` so no money moves.
 - **The dev store's catalogue price can differ from the scraped retail price.** We store what

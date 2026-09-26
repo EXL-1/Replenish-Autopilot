@@ -48,4 +48,10 @@ console.log(`  subject      : ${user.id}`);
 console.log(`  length       : ${jwt.length} chars (not printed)`);
 console.log(`  expires      : ${expiresAt.toLocaleTimeString('en-GB')} (in ${Math.round(expiresIn / 60)} min)`);
 console.log(`\n  Copied to your clipboard. Paste it into the Replenish bot's JWT field and press Save securely.`);
-console.log(`  Re-run this within the last hour before the demo — the token dies after 60 minutes.`);
+if (expiresIn < 7200) {
+  console.log(`  NOTE: this project's jwt_exp is short (${Math.round(expiresIn / 60)} min), so the token will`);
+  console.log(`  expire during the event. Raise it once with:`);
+  console.log(`    PATCH /v1/projects/<ref>/config/auth  {"jwt_exp": 86400}`);
+} else {
+  console.log(`  Good for ${Math.round(expiresIn / 3600)}h — covers the whole event.`);
+}
