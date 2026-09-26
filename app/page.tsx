@@ -41,6 +41,56 @@ function record(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+function humanise(value: string): string {
+  const words = value.replaceAll('_', ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : value;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Europe/London',
+  }).format(new Date(value));
+}
+
+function formatActivityTime(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/London',
+  }).format(new Date(value));
+}
+
+function describeDue(value: string): string {
+  const target = new Date(`${value}T12:00:00Z`);
+  const today = new Date();
+  const days = Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  if (days > 1) return `in ${days} days`;
+  if (days === -1) return 'yesterday';
+  return `${Math.abs(days)} days ago`;
+}
+
+function sourceLabel(source: string): string {
+  if (source === 'recharge') return 'Subscription schedule';
+  if (source === 'csv_seed') return 'Imported schedule';
+  return humanise(source);
+}
+
+function friendlyCompareReason(reason: string): string {
+  const fallback = reason.match(/^cheapest within cap:\s*(.+)\s+at\s+(.+)$/i);
+  if (fallback) return `${fallback[2]} had the lowest price within your limit at ${fallback[1]}.`;
+  return reason
+    .replace(/per the spending mandate/gi, 'because it matched your spending permission')
+    .replace(/the spending mandate/gi, 'your spending permission')
+    .replace(/spending mandate/gi, 'spending permission');
+}
+
 function AuditOptions({
   inputs,
   options,
@@ -54,32 +104,41 @@ function AuditOptions({
     ? options.flatMap((raw) => {
         const row = record(raw);
         if (!row || (typeof row.shop !== 'string' && row.price == null)) return [];
+        const priceValue =
+          typeof row.price === 'number' || typeof row.price === 'string' ? Number(row.price) : NaN;
         return [{
           shop: typeof row.shop === 'string' ? row.shop : 'shop',
           price: gbp(row.price),
+          priceValue,
           evidenceUrl: typeof row.evidence_url === 'string' ? row.evidence_url : null,
         }];
       })
     : [];
 
   if (shops.length > 0) {
+    const lowest = Math.min(...shops.map((option) => option.priceValue).filter(Number.isFinite));
     return (
-      <ul className="options mono">
+      <div className="shop-results">
         {shops.map((option, index) => (
-          <li key={`${option.shop}-${index}`}>
-            {option.shop}
-            {option.price ? ` · ${option.price}` : ''}
+          <div
+            className={option.priceValue === lowest ? 'shop-result shop-result-best' : 'shop-result'}
+            key={`${option.shop}-${index}`}
+          >
+            <div>
+              <strong>{option.shop}</strong>
+              {option.priceValue === lowest && <span className="best-label">Lowest found</span>}
+            </div>
+            <div className="shop-result-price">
+              <strong>{option.price ?? '—'}</strong>
             {option.evidenceUrl ? (
-              <>
-                {' · '}
                 <a href={option.evidenceUrl} target="_blank" rel="noreferrer">
-                  evidence
+                  Source ↗
                 </a>
-              </>
-            ) : null}
-          </li>
+              ) : null}
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     );
   }
 
@@ -108,16 +167,119 @@ function AuditOptions({
         ? (shopNames[shopId] ?? `shop ${shopId.slice(0, 8)}…`)
         : null;
 
-  const cap = gbp(bag.cap);
-  const parts = [
-    shop,
-    money,
-    bag.order_ref != null && bag.order_ref !== '' ? `order ${bag.order_ref}` : null,
-    cap ? `cap ${cap}` : null,
-  ].filter(Boolean);
+  const facts = [
+    shop ? { label: 'Shop', value: shop } : null,
+    money ? { label: 'Amount', value: money } : null,
+    bag.order_ref != null && bag.order_ref !== ''
+      ? { label: 'Order reference', value: String(bag.order_ref) }
+      : null,
+    gbp(bag.cap) ? { label: 'Spending limit', value: gbp(bag.cap) as string } : null,
+  ].filter((fact): fact is { label: string; value: string } => fact !== null);
 
-  if (parts.length === 0) return null;
-  return <div className="mono detail">{parts.join(' · ')}</div>;
+  if (facts.length === 0) return null;
+  return (
+    <dl className="activity-facts">
+      {facts.map((fact) => (
+        <div key={fact.label}>
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function auditPresentation(row: Audit) {
+  if (row.action === 'order.placed') {
+    const details = record(row.options);
+    if (details?.persisted === false) {
+      return {
+        title: 'Order placed, record incomplete',
+        status: 'Needs attention',
+        tone: 'warning',
+        icon: '!',
+        description: 'The order reached the shop, but Replenish could not save the full receipt.',
+      };
+    }
+    return {
+      title: 'Order placed',
+      status: 'Completed',
+      tone: 'success',
+      icon: '✓',
+      description: 'The order passed every spending rule and was placed.',
+    };
+  }
+  if (row.action === 'order.blocked') {
+    const reason = row.reason.toLowerCase();
+    let description = `Replenish stopped this order: ${row.reason}.`;
+    if (reason.includes('revoked') || reason.includes('inactive')) {
+      description = 'Replenish stopped this order because automatic spending was turned off.';
+    } else if (reason.includes('expired')) {
+      description = 'Replenish stopped this order because the spending permission had expired.';
+    } else if (reason.includes('different shop')) {
+      description = 'Replenish stopped this order because that shop was not approved.';
+    } else if (reason.includes('outside scope') || reason.includes('wrong category')) {
+      description = 'Replenish stopped this order because that type of item was not approved.';
+    } else if (reason.includes('exceeds cap') || reason.includes('over cap')) {
+      description = 'Replenish stopped this order because it was over your spending limit.';
+    } else if (reason.includes('no token')) {
+      description = 'Replenish stopped this order because no spending permission was available.';
+    }
+    return {
+      title: 'Order stopped',
+      status: 'Blocked',
+      tone: 'blocked',
+      icon: '×',
+      description,
+    };
+  }
+  if (row.action === 'compare') {
+    const allowed = row.choice === 'allow';
+    return {
+      title: 'Prices checked',
+      status: allowed ? 'Within budget' : row.choice === 'escalate' ? 'Needs approval' : 'No safe option',
+      tone: allowed ? 'success' : row.choice === 'escalate' ? 'warning' : 'blocked',
+      icon: '£',
+      description: friendlyCompareReason(row.reason),
+    };
+  }
+  return {
+    title: humanise(row.action.replaceAll('.', ' ')),
+    status: humanise(row.choice),
+    tone: row.choice === 'allow' ? 'success' : row.choice === 'escalate' ? 'warning' : 'blocked',
+    icon: '•',
+    description: row.reason,
+  };
+}
+
+function ActivityItem({ row, shopNames }: { row: Audit; shopNames: Record<string, string> }) {
+  const presentation = auditPresentation(row);
+  return (
+    <li className="activity-entry">
+      <span className={`activity-icon activity-icon-${presentation.tone}`} aria-hidden="true">
+        {presentation.icon}
+      </span>
+      <div className="activity-content">
+        <div className="activity-heading">
+          <div>
+            <h3>{presentation.title}</h3>
+            <span className={`activity-status activity-status-${presentation.tone}`}>
+              {presentation.status}
+            </span>
+          </div>
+          <time dateTime={row.created_at}>{formatActivityTime(row.created_at)}</time>
+        </div>
+        <p>{presentation.description}</p>
+        <details className="receipt-details">
+          <summary>View receipt</summary>
+          <div className="receipt-content">
+            <AuditOptions inputs={row.inputs} options={row.options} shopNames={shopNames} />
+            <p className="system-event">System event: {row.action}</p>
+          </div>
+        </details>
+      </div>
+    </li>
+  );
 }
 
 export default function Page() {
@@ -235,7 +397,11 @@ export default function Page() {
       }
 
       const pick = compareJson.pick as { shop_name: string; price: number };
-      setRunNote(`Chose ${pick.shop_name} at £${Number(pick.price).toFixed(2)}. Placing the order on the shop this token allows.`);
+      const approvedShop = shopNames[token.shop_id] ?? 'your approved shop';
+      setRunNote(
+        `Lowest price found: ${pick.shop_name} at £${Number(pick.price).toFixed(2)}. ` +
+        `Your spending permission allows ${approvedShop}, so that is where the test order will go.`,
+      );
       const orderRes = await fetch('/api/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
@@ -253,7 +419,11 @@ export default function Page() {
         await load(who);
         return;
       }
-      setRunNote(`Order ${orderJson.order_ref} placed.`);
+      const charged = gbp(orderJson.order?.amount);
+      setRunNote(
+        `Test order ${orderJson.order_ref} placed at ${approvedShop}` +
+        `${charged ? ` for ${charged}` : ''}. No money was charged.`,
+      );
       await load(who);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'run failed');
@@ -272,10 +442,15 @@ export default function Page() {
     await load(who);
   }
 
-  const live = tokens.filter((t) => t.status === 'active');
-
-  const choiceClass = (choice: string) =>
-    choice === 'allow' || choice === 'escalate' ? `choice choice-${choice}` : 'choice choice-deny';
+  const live = tokens.filter(
+    (t) => t.status === 'active' && new Date(t.expires_at).getTime() > Date.now(),
+  );
+  const activeToken = live[0];
+  const previousTokens = tokens.filter((t) => t.id !== activeToken?.id);
+  const primaryConsumable = consumables[0];
+  const allowedConsent = consent.filter((item) => item.granted);
+  const recentAudit = audit.slice(0, 4);
+  const olderAudit = audit.slice(4);
 
   return (
     <>
@@ -285,145 +460,318 @@ export default function Page() {
         <div className="blob blob-c" />
       </div>
       <div className="page">
-      <aside className="account-dock" ref={accountRef} aria-label="Signed-in account">
-        <button
-          type="button"
-          className="account-trigger"
-          aria-expanded={accountOpen}
-          aria-haspopup="menu"
-          onClick={() => setAccountOpen((open) => !open)}
-        >
-          <span className="account-kicker">Signed in as</span>
-          <span className="account-name">{ACCOUNTS[who].label}</span>
-        </button>
-        {accountOpen && (
-          <div className="account-menu" role="menu">
-            {(Object.keys(ACCOUNTS) as Who[])
-              .filter((k) => k !== who)
-              .map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  role="menuitem"
-                  className="btn btn-ghost"
-                  onClick={() => {
-                    setWho(k);
-                    setAccountOpen(false);
-                  }}
-                >
-                  View as {ACCOUNTS[k].label}
-                </button>
-              ))}
-          </div>
-        )}
-      </aside>
-      <main className="shell">
-        <header className="hero">
-          <p className="eyebrow">Privacy panel</p>
-          <h1>Replenish Autopilot</h1>
-          <p className="lede">Your cart runs itself | only you can see what it knows.</p>
-        </header>
-
-        {who === 'demo' && (
-          <section className="card">
-            <h2>Run it</h2>
-            <p className="sub">Signal, then compare the shops, then order only if the live token allows it.</p>
-            <button
-              onClick={() => void runLoop()}
-              disabled={running || busy || live.length === 0}
-              className="btn btn-accent"
-            >
-              {running ? 'Running…' : 'Run replenishment'}
-            </button>
-            {runNote && <div className="mono run-note">{runNote}</div>}
-          </section>
-        )}
-
-        {error && <div className="card error">{error}</div>}
-
-        <section className="card">
-          <h2>What I let it watch</h2>
-          <p className="sub">Opt in per category. Everything else is invisible to the agent.</p>
-          {consent.length === 0 ? (
-            <p className="sub flat">Nothing granted.</p>
-          ) : (
-            <div className="pills">
-              {consent.map((c) => (
-                <span key={c.category} className={c.granted ? 'pill pill-on' : 'pill pill-off'}>
-                  {c.category}: {c.granted ? 'allowed' : 'off'}
-                </span>
-              ))}
+        <aside className="account-dock" ref={accountRef} aria-label="Signed-in account">
+          <button
+            type="button"
+            className="account-trigger"
+            aria-expanded={accountOpen}
+            aria-haspopup="menu"
+            onClick={() => setAccountOpen((open) => !open)}
+          >
+            <span className="account-kicker">Signed in as</span>
+            <span className="account-name">{ACCOUNTS[who].label}</span>
+          </button>
+          {accountOpen && (
+            <div className="account-menu" role="menu">
+              {(Object.keys(ACCOUNTS) as Who[])
+                .filter((k) => k !== who)
+                .map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="menuitem"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setWho(k);
+                      setAccountOpen(false);
+                    }}
+                  >
+                    View as {ACCOUNTS[k].label}
+                  </button>
+                ))}
             </div>
           )}
-        </section>
+        </aside>
+        <main className="shell">
+          <header className="hero">
+            <p className="eyebrow">Privacy panel</p>
+            <h1>Replenish Autopilot</h1>
+            <p className="lede">Your cart runs itself | only you can see what it knows.</p>
+          </header>
 
-        <section className="card">
-          <h2>What it actually knows about me</h2>
-          <p className="sub">No profile, no purchase history. This is the whole record.</p>
-          {consumables.length === 0 ? (
-            <p className="sub flat">No rows for this person.</p>
-          ) : (
-            consumables.map((c) => (
-              <div key={c.id} className="mono list-row">
-                {c.product_key} · every {c.cadence_days} days · empty {c.est_empty_date} · source {c.source}
-              </div>
-            ))
-          )}
-        </section>
-
-        <section className="card">
-          <h2>What it&apos;s allowed to spend</h2>
-          <p className="sub">A capped, category-scoped, expiring token. It cannot overreach, even if it hallucinates.</p>
-          {tokens.length === 0 ? (
-            <p className="sub flat">No tokens for this person.</p>
-          ) : (
-            tokens.map((t) => (
-              <div key={t.id} className="list-row token-row">
-                <div className="token-copy">
-                  <div className="mono token-title">
-                    £{Number(t.max_amount).toFixed(2)} · {t.category_scope} · {new Date(t.expires_at).toLocaleDateString()}
+          {who === 'demo' ? (
+            <section className={running ? 'card action-card is-running' : 'card action-card'}>
+              <div className="action-layout">
+                <div className="action-copy">
+                  <p className="section-label">Your next refill</p>
+                  <div className="due-status">
+                    <span className={activeToken ? 'status-dot status-dot-on' : 'status-dot'} />
+                    {busy
+                      ? 'Loading your refill plan…'
+                      : primaryConsumable
+                        ? `${humanise(primaryConsumable.product_key)} is due ${describeDue(primaryConsumable.est_empty_date)}`
+                        : 'Nothing needs restocking right now'}
                   </div>
-                  <p className="sub flat">{t.status === 'active' ? 'still live' : 'revoked'}</p>
+                  <h2>
+                    {busy
+                      ? 'Getting everything ready'
+                      : !activeToken
+                        ? 'Automatic reordering is paused'
+                        : primaryConsumable
+                          ? `Let Replenish handle ${humanise(primaryConsumable.product_key).toLowerCase()}`
+                          : 'You are all stocked up'}
+                  </h2>
+                  <p>
+                    {activeToken
+                      ? `We’ll compare approved shops and only place an order if it stays within your ${gbp(activeToken.max_amount)} limit.`
+                      : 'A new spending permission is needed before Replenish can place an order.'}
+                  </p>
+                  <div className="action-controls">
+                    <button
+                      onClick={() => void runLoop()}
+                      disabled={running || busy || !activeToken || !primaryConsumable}
+                      className="btn btn-accent btn-primary-action"
+                    >
+                      {running
+                        ? 'Checking shops…'
+                        : !activeToken
+                          ? 'Reordering paused'
+                          : !primaryConsumable
+                            ? 'Nothing to reorder'
+                            : 'Check prices & reorder'}
+                    </button>
+                    <span>Demo mode: creates a Shopify test order. No money is charged.</span>
+                  </div>
                 </div>
-                {t.status === 'active' ? (
-                  <button onClick={() => revoke(t.id)} className="btn btn-danger">
-                    Revoke
-                  </button>
-                ) : (
-                  <span className="mono inert">— inert</span>
-                )}
+                <ol className="journey" aria-label="How Replenish works">
+                  <li>
+                    <span>1</span>
+                    <div>
+                      <strong>Check what&apos;s low</strong>
+                      <p>Uses your refill schedule.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span>2</span>
+                    <div>
+                      <strong>Compare shops</strong>
+                      <p>Looks for a suitable price.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span>3</span>
+                    <div>
+                      <strong>Apply your limits</strong>
+                      <p>Only orders when every rule passes.</p>
+                    </div>
+                  </li>
+                </ol>
               </div>
-            ))
-          )}
-          {live.length === 0 && tokens.length > 0 && (
-            <p className="sub warn">No live tokens. The agent cannot spend a penny.</p>
-          )}
-        </section>
-
-        <section className="card">
-          <h2>What it did, and why</h2>
-          <p className="sub">Every action, the options it compared, and the reason for its choice.</p>
-          {audit.length === 0 ? (
-            <p className="sub flat">No activity for this person.</p>
+              {runNote && (
+                <div className="run-status" role="status" aria-live="polite">
+                  <span className={running ? 'run-status-spinner' : 'run-status-check'} aria-hidden="true">
+                    {running ? '' : '✓'}
+                  </span>
+                  {runNote}
+                </div>
+              )}
+            </section>
           ) : (
-            audit.map((r) => (
-              <div key={r.id} className="list-row">
-                <div className="mono audit-head">
-                  <strong>{r.action}</strong>
-                  <span className={choiceClass(r.choice)}>{r.choice}</span>
-                  <span className="when">{new Date(r.created_at).toLocaleTimeString()}</span>
-                </div>
-                <div className="reason">{r.reason}</div>
-                <AuditOptions inputs={r.inputs} options={r.options} shopNames={shopNames} />
-              </div>
-            ))
+            <section className="card empty-account">
+              <span className="empty-lock" aria-hidden="true">✓</span>
+              <p className="section-label">Private by design</p>
+              <h2>No shopping data for this account</h2>
+              <p>
+                This account cannot see the demo shopper&apos;s products, spending permissions, or activity.
+              </p>
+            </section>
           )}
-        </section>
 
-        <p className="footnote">
-          Rows are scoped to you by row-level security. Switch identity above and the other person&apos;s view is empty.
-        </p>
-      </main>
+          {error && (
+            <div className="notice notice-error" role="alert">
+              <strong>Something went wrong</strong>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {who === 'demo' && (
+            <>
+              <section className="page-section" aria-labelledby="safeguards-title">
+                <div className="section-heading">
+                  <p className="section-label">You stay in control</p>
+                  <h2 id="safeguards-title">Your safeguards</h2>
+                  <p>These boundaries are enforced before Replenish can buy anything.</p>
+                </div>
+
+                <div className="safeguards-grid">
+                  <article className="card safeguard-card">
+                    <div className="card-title-row">
+                      <div>
+                        <p className="section-label">Access</p>
+                        <h3>What Replenish can see</h3>
+                      </div>
+                      <span className="count-badge">{allowedConsent.length} allowed</span>
+                    </div>
+                    {consent.length === 0 ? (
+                      <p className="empty-copy">No categories are shared.</p>
+                    ) : (
+                      <ul className="permission-list">
+                        {consent.map((item) => (
+                          <li key={item.category}>
+                            <span
+                              className={item.granted ? 'permission-mark permission-mark-on' : 'permission-mark'}
+                              aria-hidden="true"
+                            >
+                              {item.granted ? '✓' : '—'}
+                            </span>
+                            <span>{humanise(item.category)}</span>
+                            <strong>{item.granted ? 'Allowed' : 'Not shared'}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="card-note">Everything else stays invisible to the agent.</p>
+                  </article>
+
+                  <article className="card safeguard-card">
+                    <div className="card-title-row">
+                      <div>
+                        <p className="section-label">Spending</p>
+                        <h3>Your purchase limit</h3>
+                      </div>
+                      <span className={activeToken ? 'live-badge' : 'paused-badge'}>
+                        <span aria-hidden="true" />
+                        {activeToken ? 'On' : 'Paused'}
+                      </span>
+                    </div>
+                    {activeToken ? (
+                      <>
+                        <div className="limit-amount">
+                          {gbp(activeToken.max_amount)}
+                          <span>maximum per order</span>
+                        </div>
+                        <dl className="limit-details">
+                          <div>
+                            <dt>For</dt>
+                            <dd>{humanise(activeToken.category_scope)} only</dd>
+                          </div>
+                          <div>
+                            <dt>Until</dt>
+                            <dd>{formatDate(activeToken.expires_at)}</dd>
+                          </div>
+                        </dl>
+                        <button onClick={() => void revoke(activeToken.id)} className="btn btn-stop">
+                          Turn off automatic spending
+                        </button>
+                      </>
+                    ) : (
+                      <div className="paused-state">
+                        <strong>Automatic spending is off</strong>
+                        <p>Replenish cannot place an order.</p>
+                      </div>
+                    )}
+                    {previousTokens.length > 0 && (
+                      <details className="history-details">
+                        <summary>
+                          {previousTokens.length === 1
+                            ? '1 previous permission'
+                            : `${previousTokens.length} previous permissions`}
+                        </summary>
+                        <div className="history-list">
+                          {previousTokens.map((token) => (
+                            <div key={token.id}>
+                              <span>{gbp(token.max_amount)} · {humanise(token.category_scope)}</span>
+                              <strong>
+                                {new Date(token.expires_at).getTime() <= Date.now() ? 'Expired' : 'Off'}
+                              </strong>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </article>
+                </div>
+              </section>
+
+              <section className="page-section" aria-labelledby="data-title">
+                <div className="section-heading">
+                  <p className="section-label">Data kept to a minimum</p>
+                  <h2 id="data-title">What Replenish knows</h2>
+                  <p>Only the information needed to predict your next refill.</p>
+                </div>
+                <div className="card knowledge-card">
+                  {consumables.length === 0 ? (
+                    <div className="empty-state">
+                      <strong>No products are being watched</strong>
+                      <p>There is no refill data stored for this account.</p>
+                    </div>
+                  ) : (
+                    <div className="known-items">
+                      {consumables.map((item) => (
+                        <article className="known-item" key={item.id}>
+                          <span className="product-initial" aria-hidden="true">
+                            {humanise(item.product_key).charAt(0)}
+                          </span>
+                          <div>
+                            <h3>{humanise(item.product_key)}</h3>
+                            <p>
+                              Expected to run out {formatDate(item.est_empty_date)} · usually lasts {item.cadence_days} days
+                            </p>
+                            <span>{sourceLabel(item.source)}</span>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                  <div className="privacy-promise">
+                    <span aria-hidden="true">✓</span>
+                    <p>
+                      <strong>That&apos;s the whole record.</strong> No profile, browsing history, or full purchase history.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="page-section" aria-labelledby="activity-title">
+                <div className="section-heading">
+                  <p className="section-label">Clear and accountable</p>
+                  <h2 id="activity-title">Recent activity</h2>
+                  <p>A simple receipt for every price check, order, or block.</p>
+                </div>
+                <div className="card activity-card">
+                  {audit.length === 0 ? (
+                    <div className="empty-state">
+                      <strong>No activity yet</strong>
+                      <p>Your checks and orders will appear here.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ol className="activity-list">
+                        {recentAudit.map((row) => (
+                          <ActivityItem key={row.id} row={row} shopNames={shopNames} />
+                        ))}
+                      </ol>
+                      {olderAudit.length > 0 && (
+                        <details className="older-activity">
+                          <summary>Show {olderAudit.length} earlier event{olderAudit.length === 1 ? '' : 's'}</summary>
+                          <ol className="activity-list activity-list-older">
+                            {olderAudit.map((row) => (
+                              <ActivityItem key={row.id} row={row} shopNames={shopNames} />
+                            ))}
+                          </ol>
+                        </details>
+                      )}
+                    </>
+                  )}
+                </div>
+              </section>
+            </>
+          )}
+
+          <p className="footnote">
+            Your data is protected by row-level security. Other accounts cannot see it.
+          </p>
+        </main>
       </div>
     </>
   );
