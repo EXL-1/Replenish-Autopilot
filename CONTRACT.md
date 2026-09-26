@@ -72,3 +72,20 @@ Written by Lucas’s order path. This is what the panel renders.
 | `consent` | privacy panel | both |
 
 Gabriel’s UI reads `audit_log`, `spend_tokens`, and `consent` only. It does not read other tables to render the panel.
+
+## 7. Integration checkpoints
+
+| Time | Checkpoint |
+|---|---|
+| 10:30 | this contract frozen (both) — done, on `main` |
+| 13:30 | first merge — order path live |
+| 14:30 | second merge — panel + revoke |
+
+## 8. As-built notes (Lucas, trust layer)
+
+- `ReorderSignal.source` is `recharge | csv_seed` — the code, the CSV seed, and the
+  `consumables.source` column all use those exact two literals. No other value is emitted.
+- `checkToken(token, { amount, category, shop_id })` in `lib/policy-engine.ts` returns the
+  verdict. Ordering: revoked → expired → wrong shop → wrong category → over cap (escalate).
+- `price_findings` has **no `user_id`** column (it hangs off `consumable_id`), so its RLS
+  policy derives ownership through the parent consumable. Do not add a column to "fix" it.
