@@ -70,6 +70,25 @@ fail('revoked existing tokens', (
     .eq('status', 'active')
 ).error);
 
+// Prune old revoked tokens. Every rehearsal adds one and they never leave, so the
+// pile grows without bound. Keep the newest few — the panel shows revoked tokens as
+// the "it cannot spend" evidence, so the history is the point — and drop the rest.
+{
+  const { data: revoked } = await db
+    .from('spend_tokens')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'revoked')
+    .order('issued_at', { ascending: false });
+
+  const ids = (revoked ?? []).map((r) => r.id as string);
+  const drop = ids.slice(3);
+  if (drop.length > 0) {
+    await db.from('spend_tokens').delete().in('id', drop);
+  }
+  console.log(`  pruned ${drop.length} old revoked tokens, kept ${ids.length - drop.length}`);
+}
+
 const { data: token, error: tokenErr } = await db
   .from('spend_tokens')
   .insert({

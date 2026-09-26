@@ -9,3 +9,6 @@ next-env.d.ts
 .DS_Store
 .env*
 supabase/.temp/
+
+# internal planning docs - never part of the submission
+Replenish_Autopilot_*.docx
