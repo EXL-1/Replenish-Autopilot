@@ -50,7 +50,8 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 > "It watches exactly the categories I allow. Consumables — allowed. Household — allowed.
 > Electronics — not shared. That's not a preference screen, that's the boundary of what it can see."
 
-**Do:** Point at the three rows. Don't click anything.
+**Do:** Point at the three rows. Optional: click **Electronics** or **Household** to show
+instant interactive toggling in real time.
 
 ### 0:40 — The limit (`Your purchase limit`)
 
@@ -58,23 +59,24 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 > It expires tomorrow whether I use it or not.
 > A cap, a category, an expiry — and it can't talk its way past any of them."
 
-**Do:** Hover **Turn off automatic spending** but don't click yet.
+**Do:** Point at the preset limit pills (£10, £25, £40, £60). Hover **Turn off automatic spending**
+but don't click yet. (If spending is ever turned off, a "Resume automatic spending" button lets
+you restore spending immediately).
 
 ### 1:00 — Minimisation (`What Replenish knows`)
 
-> "And this is the entire record of what it knows about me. One item.
+> "And this is the entire record of what it knows about me. Three items.
 > Not my profile, not my purchase history, not my browsing. What I buy,
 > how long it lasts, and when it runs out."
 
-**Do:** Read the single item aloud — *Coffee beans 1kg · expected to run out 30 Sep ·
-usually lasts 28 days*. Point at **"That's the whole record."**
+**Do:** Point at the items (Coffee beans, Oat milk, Toothpaste). Point at **"That's the whole record."**
 
 ### 1:20 — Run it
 
 > "So let's let it shop."
 
-**Do:** Scroll back to the top and click **Check prices & reorder**. Narrate the status line
-as it changes:
+**Do:** Scroll back to the top. Point to the refill switcher pills (e.g. Coffee beans or Oat milk).
+Click **Check prices & reorder**. Narrate the status line as it changes:
 
 - *"Checking what is about to run out."*
 - *"Coffee is four days out. Comparing shops."*
