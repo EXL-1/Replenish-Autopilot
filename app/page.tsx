@@ -41,7 +41,15 @@ function record(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function AuditOptions({ inputs, options }: { inputs: unknown; options: unknown }) {
+function AuditOptions({
+  inputs,
+  options,
+  shopNames,
+}: {
+  inputs: unknown;
+  options: unknown;
+  shopNames: Record<string, string>;
+}) {
   const shops = Array.isArray(options)
     ? options.flatMap((raw) => {
         const row = record(raw);
@@ -80,10 +88,30 @@ function AuditOptions({ inputs, options }: { inputs: unknown; options: unknown }
     const row = record(source);
     if (row) Object.assign(bag, row);
   }
+
+  // order.placed records the requested and charged amounts separately, because
+  // Shopify is authoritative on price — our scraped price and the store's
+  // catalogue price can differ. Fall back to a plain `amount` for older rows.
+  const charged = gbp(bag.charged_amount);
+  const requested = gbp(bag.requested_amount);
+  const money =
+    charged && requested && requested !== charged
+      ? `${charged} (asked ${requested})`
+      : (charged ?? requested ?? gbp(bag.amount));
+
+  // Resolve the shop to a name; a raw UUID is unreadable on a demo screen.
+  const shopId = typeof bag.shop_id === 'string' ? bag.shop_id : null;
+  const shop =
+    typeof bag.shop === 'string'
+      ? bag.shop
+      : shopId
+        ? (shopNames[shopId] ?? `shop ${shopId.slice(0, 8)}…`)
+        : null;
+
   const cap = gbp(bag.cap);
   const parts = [
-    typeof bag.shop === 'string' ? bag.shop : typeof bag.shop_id === 'string' ? `shop ${bag.shop_id}` : null,
-    gbp(bag.amount),
+    shop,
+    money,
     bag.order_ref != null && bag.order_ref !== '' ? `order ${bag.order_ref}` : null,
     cap ? `cap ${cap}` : null,
   ].filter(Boolean);
@@ -101,6 +129,7 @@ export default function Page() {
   const [audit, setAudit] = useState<Audit[]>([]);
   const [consent, setConsent] = useState<Consent[]>([]);
   const [shopCount, setShopCount] = useState(0);
+  const [shopNames, setShopNames] = useState<Record<string, string>>({});
 
   const load = useCallback(async (key: Who) => {
     setBusy(true);
@@ -120,7 +149,7 @@ export default function Page() {
         sb.from('spend_tokens').select('*').order('issued_at', { ascending: false }).limit(5),
         sb.from('audit_log').select('*').order('created_at', { ascending: false }).limit(12),
         sb.from('consent').select('category, granted').order('category'),
-        sb.from('shops').select('id'),
+        sb.from('shops').select('id, name'),
       ]);
 
       setConsumables((c.data ?? []) as Consumable[]);
@@ -128,6 +157,11 @@ export default function Page() {
       setAudit((a.data ?? []) as Audit[]);
       setConsent((k.data ?? []) as Consent[]);
       setShopCount((s.data ?? []).length);
+      setShopNames(
+        Object.fromEntries(
+          ((s.data ?? []) as { id: string; name: string }[]).map((r) => [r.id, r.name]),
+        ),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to load');
     } finally {
@@ -287,7 +321,7 @@ export default function Page() {
                 </span>
               </div>
               <div style={{ fontSize: 13, color: '#4b5563', marginTop: 3 }}>{r.reason}</div>
-              <AuditOptions inputs={r.inputs} options={r.options} />
+              <AuditOptions inputs={r.inputs} options={r.options} shopNames={shopNames} />
             </div>
           ))
         )}
