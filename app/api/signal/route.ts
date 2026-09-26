@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireUser, isDenied } from '@/lib/auth';
 import type { ReorderSignal } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -13,8 +14,18 @@ const THRESHOLD_DAYS = Number(process.env.SIGNAL_THRESHOLD_DAYS ?? 7);
  * trust-layer stub that proves the contract shape is wired end to end.
  */
 export async function GET(req: Request) {
-  const userId = new URL(req.url).searchParams.get('user_id');
-  if (!userId) return NextResponse.json({ error: 'user_id required' }, { status: 400 });
+  const caller = await requireUser(req);
+  if (isDenied(caller)) {
+    return NextResponse.json({ error: caller.error }, { status: caller.status });
+  }
+
+  // Scoped to the authenticated user. A user_id in the query string is honoured
+  // only when it matches the token — it is never trusted on its own.
+  const requested = new URL(req.url).searchParams.get('user_id');
+  if (requested && requested !== caller.userId) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+  const userId = caller.userId;
 
   const { data: consumables, error } = await supabaseAdmin
     .from('consumables')

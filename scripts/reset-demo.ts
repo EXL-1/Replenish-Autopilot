@@ -6,6 +6,7 @@
 //
 // Run: npm run reset:demo
 import { createClient } from '@supabase/supabase-js';
+import { reasonAboutPick } from '../lib/grok.ts';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -70,6 +71,25 @@ fail('revoked existing tokens', (
     .eq('status', 'active')
 ).error);
 
+// Prune old revoked tokens. Every rehearsal adds one and they never leave, so the
+// pile grows without bound. Keep the newest few — the panel shows revoked tokens as
+// the "it cannot spend" evidence, so the history is the point — and drop the rest.
+{
+  const { data: revoked } = await db
+    .from('spend_tokens')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'revoked')
+    .order('issued_at', { ascending: false });
+
+  const ids = (revoked ?? []).map((r) => r.id as string);
+  const drop = ids.slice(3);
+  if (drop.length > 0) {
+    await db.from('spend_tokens').delete().in('id', drop);
+  }
+  console.log(`  pruned ${drop.length} old revoked tokens, kept ${ids.length - drop.length}`);
+}
+
 const { data: token, error: tokenErr } = await db
   .from('spend_tokens')
   .insert({
@@ -113,9 +133,31 @@ fail(
   ).error,
 );
 
-// 6. audit trail — the four beats, oldest first
+// 6. audit trail — the three beats, oldest first
 fail('cleared the audit trail', (await db.from('audit_log').delete().eq('user_id', userId)).error);
 const beat = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+
+// The seeded compare row should read like a live one, so the panel opens on the same
+// sentence pressing Run would produce. Same fallback discipline as the app: if Grok is
+// slow, down, or returns junk, the deterministic reason stands and the demo still runs.
+const seededFindings = [
+  { shop: 'Tesco', price: 14.25 },
+  { shop: 'Waitrose', price: 13.5 },
+  { shop: 'Ocado', price: 14.7 },
+];
+const compareReason = await reasonAboutPick(
+  { product_key: DEMO_PRODUCT, days_until_empty: 4, source: 'recharge' },
+  seededFindings,
+  {
+    shop: shop.name,
+    cap: Number(token?.max_amount ?? CAP),
+    category: 'consumables',
+    expires_on: token?.expires_at ? String(token.expires_at).slice(0, 10) : 'unknown',
+  },
+  'cheapest within cap: £13.5 at Waitrose',
+);
+console.log(`  compare reason: ${compareReason.source} — ${compareReason.why.slice(0, 80)}`);
+
 fail(
   'seeded the audit trail',
   (
@@ -123,14 +165,14 @@ fail(
       {
         user_id: userId,
         action: 'compare',
-        inputs: { product_key: DEMO_PRODUCT, max_amount: CAP },
-        options: [
-          { shop: 'Tesco', price: 14.25 },
-          { shop: 'Waitrose', price: 13.5 },
-          { shop: 'Ocado', price: 14.7 },
-        ],
+        inputs: {
+          product_key: DEMO_PRODUCT,
+          max_amount: CAP,
+          explained_by: compareReason.source,
+        },
+        options: seededFindings,
         choice: 'allow',
-        reason: 'cheapest within cap: £13.5 at Waitrose',
+        reason: compareReason.why,
         created_at: beat(3),
       },
       {
