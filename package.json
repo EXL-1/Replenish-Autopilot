@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check:policy": "node --experimental-strip-types scripts/check-policy.ts",
-    "check:compare": "node --experimental-strip-types scripts/compare-probe.ts"
+    "check:compare": "node --experimental-strip-types scripts/compare-probe.ts",
+    "reset:demo": "node --env-file=.env.local --experimental-strip-types scripts/reset-demo.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
