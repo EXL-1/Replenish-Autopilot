@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireUser, isDenied } from '@/lib/auth';
 import { compareShops, pickBestWithinCap, humaniseKey, type Shop } from '@/lib/tavily';
 
 export const runtime = 'nodejs';
@@ -74,6 +75,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'consumable_id required' }, { status: 400 });
   }
 
+  const caller = await requireUser(req);
+  if (isDenied(caller)) {
+    return NextResponse.json({ error: caller.error }, { status: caller.status });
+  }
+
   const { data: consumable, error: cErr } = await supabaseAdmin
     .from('consumables')
     .select('*')
@@ -81,6 +87,13 @@ export async function POST(req: Request) {
     .single();
 
   if (cErr || !consumable) {
+    return NextResponse.json({ error: 'consumable not found' }, { status: 404 });
+  }
+
+  // The service-role client bypasses RLS, so ownership is checked here instead:
+  // a consumable belonging to someone else must look identical to one that
+  // doesn't exist, otherwise this endpoint enumerates other people's data.
+  if (consumable.user_id !== caller.userId) {
     return NextResponse.json({ error: 'consumable not found' }, { status: 404 });
   }
 

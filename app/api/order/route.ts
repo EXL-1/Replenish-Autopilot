@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkToken } from '@/lib/policy-engine';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireUser, isDenied } from '@/lib/auth';
 import { placeOrder } from '@/lib/shopify';
 import type { SpendToken } from '@/lib/types';
 
@@ -21,6 +22,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: 'token_id, shop_id, amount required' }, { status: 400 });
   }
 
+  const caller = await requireUser(req);
+  if (isDenied(caller)) {
+    return NextResponse.json(
+      { ok: false, decision: 'deny', reason: caller.error },
+      { status: caller.status },
+    );
+  }
+
   // 1. load the token (service role: RLS bypassed, so filter explicitly)
   const { data: token, error } = await supabaseAdmin
     .from('spend_tokens')
@@ -29,6 +38,12 @@ export async function POST(req: Request) {
     .single();
 
   if (error || !token) {
+    return NextResponse.json({ ok: false, decision: 'deny', reason: 'token not found' }, { status: 404 });
+  }
+
+  // A token issued to someone else must not be spendable by the caller, and must
+  // be indistinguishable from a token that doesn't exist.
+  if (token.user_id !== caller.userId) {
     return NextResponse.json({ ok: false, decision: 'deny', reason: 'token not found' }, { status: 404 });
   }
 
