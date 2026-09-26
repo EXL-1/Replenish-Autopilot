@@ -32,8 +32,13 @@ Grok Bot Commerce · London Hackathon — Fleek HQ, 26 September 2026
 
 ```
 GET  /api/signal?user_id=<id>   -> ReorderSignal[]  (days-until-empty < threshold)
+POST /api/compare               -> Tavily across the configured shops -> price_findings rows
 POST /api/order                 -> policy check -> Shopify order -> orders + audit_log rows
 ```
+
+`POST /api/compare` body: `{ consumable_id, max_amount?, refresh? }`. It ranks each
+shop's product pages, reads the pack price (range- and unit-price phrases stripped) and
+caches results for `PRICE_CACHE_TTL_MINUTES` so a live demo never trips Tavily's rate limit.
 
 The policy engine (`lib/policy-engine.ts`) returns `allow | deny | escalate`.
 **`deny` and `escalate` never place an order.**
