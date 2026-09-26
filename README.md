@@ -27,12 +27,42 @@ wallet is allowed to open — and proves, afterwards, exactly what it did and wh
 2. **Compare** — live prices from three retailers via Tavily, ranked, with the pack price
    extracted (retail ranges and per-100g unit prices stripped). Cached for
    `PRICE_CACHE_TTL_MINUTES` so a live demo never trips a rate limit.
-3. **Policy check** — a spend token carries **cap + category scope + shop scope + expiry**.
+3. **Explain** — **Grok** (xAI) is given the signal, the three prices and the mandate's
+   constraints, and writes the one sentence the audit trail shows. See below.
+4. **Policy check** — a spend token carries **cap + category scope + shop scope + expiry**.
    The engine returns `allow | deny | escalate`. **`deny` and `escalate` never place an order.**
-4. **Order** — a real order on a real Shopify store, in test mode.
-5. **Audit** — every decision logs the inputs, the options compared, the choice and the reason.
+5. **Order** — a real order on a real Shopify store, in test mode.
+6. **Audit** — every decision logs the inputs, the options compared, the choice and the reason.
 
-Open the live URL and press **Run replenishment** to see all five steps in one click.
+Open the live URL and press **Run replenishment** to see all six steps in one click.
+
+## Where Grok sits — the decision, not the spend
+
+A model that can be talked into spending is not a trust layer. So Grok explains and does not
+decide:
+
+- It runs **server-side**, after the caller's JWT is verified, on the compare path.
+- It receives the reorder signal, the prices already fetched, and the mandate's constraints.
+  It receives **no profile, no Shopify admin token, no service-role key, and no tools**. Web
+  search stays off — Tavily is already the evidence, and a second search would widen what the
+  agent knows.
+- Whatever shop it names is run through **`checkToken`** and only logged. Authority never
+  moves: `deny` and `escalate` still never reach `placeOrder`.
+- **`store: false`** — the xAI Responses API otherwise retains the conversation for 30 days,
+  which is a profile, and we promised not to build one.
+- Any failure — missing key, HTTP error, timeout, junk JSON — falls back to the deterministic
+  template reason. The demo finishes either way.
+
+The audit line it produces is the most interesting thing on the screen:
+
+> *"Order placed at Shopify Dev Store per the spending mandate even though Waitrose has the
+> lowest price found at £13.50."*
+
+That is a real contradiction, explained: the cheapest shop is not the shop the mandate allows.
+
+Model picked by measurement, not vibes: `grok-4.3` took 8.3s, `grok-4.5` took 9.7s *and got the
+situation wrong*, `grok-4.20-0309-non-reasoning` takes ~1s and is correct.
+
 
 ## Privacy architecture — the differentiator
 
@@ -69,6 +99,7 @@ routes enforce their own rules:
 | Check | Result |
 |---|---|
 | Full sequence, end to end | **7/7 pass, ~9s** (against a 180s demo budget) |
+| Grok explanation | `explained_by: grok`, ~1s; falls back to the template reason if the model is slow, down, or returns junk |
 | Policy engine | `npm run check:policy` — 7/7 (cap, category, TTL, revoke, wrong shop, no token) |
 | Live price compare | 3 shops, stable pick, evidence URLs |
 | RLS isolation | demo user sees 27 rows; second account sees **0** |
@@ -131,3 +162,6 @@ POST /api/order                 -> policy check -> Shopify order -> orders + aud
 ```
 
 All three require `Authorization: Bearer <supabase-jwt>`.
+
+`POST /api/compare` also returns `reason` (the sentence shown in the audit trail) and
+`explained_by` (`grok` | `fallback`).
