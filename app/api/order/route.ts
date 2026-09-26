@@ -47,18 +47,31 @@ export async function POST(req: Request) {
   }
 
   // 3. place the order
-  let orderRef: string;
+  let placed;
   try {
-    orderRef = await placeOrder([{ variant_id: String(variant_id), quantity: 1 }]);
+    placed = await placeOrder([{ variant_id: String(variant_id), quantity: 1 }]);
   } catch (e) {
     const reason = e instanceof Error ? e.message : 'shopify error';
     return NextResponse.json({ ok: false, decision: 'error', reason }, { status: 502 });
   }
 
+  // Shopify is authoritative on price. Our scraped price and the store's catalogue
+  // price can differ, and a panel-vs-store mismatch is exactly what makes a "real
+  // order" look staged. Store what was actually charged.
+  const charged =
+    Number.isFinite(placed.total_price) && placed.total_price > 0 ? placed.total_price : amount;
+
   // 4. persist order + audit trail
   const { data: orderRow } = await supabaseAdmin
     .from('orders')
-    .insert({ user_id: token.user_id, consumable_id, shop_id, amount, token_id, order_ref: orderRef })
+    .insert({
+      user_id: token.user_id,
+      consumable_id,
+      shop_id,
+      amount: charged,
+      token_id,
+      order_ref: placed.id,
+    })
     .select()
     .single();
 
@@ -66,10 +79,15 @@ export async function POST(req: Request) {
     user_id: token.user_id,
     action: 'order.placed',
     inputs: body,
-    options: { shop_id, amount, order_ref: orderRef },
+    options: {
+      shop_id,
+      requested_amount: amount,
+      charged_amount: charged,
+      order_ref: placed.id,
+    },
     choice: 'allow',
     reason: `within cap ${token.max_amount}, scope ${token.category_scope}`,
   });
 
-  return NextResponse.json({ ok: true, order_ref: orderRef, order: orderRow });
+  return NextResponse.json({ ok: true, order_ref: placed.id, order: orderRow });
 }
