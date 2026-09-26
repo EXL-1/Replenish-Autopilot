@@ -119,7 +119,25 @@ fail(
 );
 
 // 5. the one consumable the agent is allowed to know about
+//
+// Deleting consumables CASCADES to orders (orders.consumable_id is ON DELETE CASCADE),
+// so this also clears order history. That is fine for a clean demo slate, but it must
+// not happen silently — an agent holding ids from before the reset will fail its own
+// insert afterwards.
+const ordersBefore = (
+  await db.from('orders').select('id').eq('user_id', userId)
+).data?.length ?? 0;
+
 fail('cleared consumables', (await db.from('consumables').delete().eq('user_id', userId)).error);
+
+const ordersAfter = (
+  await db.from('orders').select('id').eq('user_id', userId)
+).data?.length ?? 0;
+if (ordersBefore !== ordersAfter) {
+  console.log(
+    `  note  cleared ${ordersBefore - ordersAfter} order row(s) by cascade — restart the agent after a reset`,
+  );
+}
 fail(
   'seeded the consumable',
   (
