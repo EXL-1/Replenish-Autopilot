@@ -9,6 +9,10 @@ and don't fill silence with features; the demo is four sentences and four clicks
 If you are running long, cut in this order: **the minimisation beat, then the consent beat.**
 Never cut the audit trail, the revoke, or the identity switch — those are the pitch.
 
+The panel reads top to bottom as: **Your next refill** (the button) → **Your safeguards** →
+**What Replenish knows** → **Recent activity**. The script walks down the page, comes back up
+to press the button, then walks down again.
+
 ---
 
 ## Before you start (2 minutes before you're called)
@@ -18,16 +22,20 @@ git pull origin main
 npm run reset:demo        # resets the demo state
 ```
 
-That gives you exactly one live token, the single consumable, and the three-beat trail.
-**Do not skip it** — revoking is irreversible, so if you demo twice without resetting, the
-second run has no live token.
+That gives you exactly one live spending permission, three seeded consumables, and a
+three-row activity trail. **Do not skip it** — turning off spending is irreversible, so if
+you demo twice without resetting, the second run has nothing to spend with.
 
-**If you are using the Grok Bot beat: restart the bot after resetting.** `reset:demo`
-recreates the consumable, and any agent still holding the old ids will fail its next order.
+If the Replenish bot is part of the demo, **restart it after the reset** and paste a fresh
+token from `npm run demo:jwt`. The reset recreates the consumable, so a bot still holding
+the old id fails its next order.
 
 Then open a browser tab on **https://replenish-autopilot.vercel.app** and leave it there.
-Confirm the panel reads **"SIGNED IN AS Demo shopper"**, that the card says *"Coffee beans
-1kg is due in 4 days"*, and that **Check prices & reorder** is clickable.
+Confirm:
+
+- top left reads **SIGNED IN AS Demo shopper**
+- the refill card is ready and **Check prices & reorder** is *not* greyed out
+- **Your purchase limit** shows the green **On** badge
 
 ---
 
@@ -38,85 +46,98 @@ Confirm the panel reads **"SIGNED IN AS Demo shopper"**, that the card says *"Co
 > "Everyone here is going to show you a bot that buys things for them.
 > I want to start somewhere else: with how little power I gave mine."
 
-**Do:** You're already on the panel. Don't scroll — you're at the top.
+**Do:** You're at the top. The card already says *Coffee beans 1kg is due in 4 days*.
+Don't press the button yet — scroll down to **Your safeguards**.
 
 This is the whole pitch. If you get only one sentence out, get that one out.
 
 ### 0:15 — Consent (`What Replenish can see`)
 
-> "It watches exactly one category. Consumables — on. Household — on.
-> Electronics — off. That's not a preference screen, that's the boundary of what it can see."
+> "It watches exactly the categories I allow. Consumables — allowed. Household — allowed.
+> Electronics — not shared. That's not a preference screen, that's the boundary of what it can see."
 
-**Do:** Point at the **ACCESS** block. `Consumables — Allowed`, `Household — Allowed`,
-`Electronics — Not shared`. Don't click anything.
+**Do:** Point at the three rows (`Consumables — Allowed`, `Household — Allowed`, `Electronics — Not shared`).
+*Optional interactivity:* Click any category to toggle permission live via Supabase RLS.
 
-### 0:30 — Minimisation (`What Replenish knows`)
+### 0:30 — The limit (`Your purchase limit`)
 
-> "This is the entire record of what it knows about me. One line.
-> Not my profile, not my purchase history, not my browsing. One row: what I bought,
-> how often, and when it runs out."
-
-**Do:** Read the single row aloud — *"Coffee beans 1kg · Expected to run out 30 Sept 2026 ·
-usually lasts 28 days"*. Note the line under it: **"That's the whole record."**
-
-### 0:45 — The token (`Your safeguards`)
-
-> "This is what it's allowed to spend. Forty pounds. Consumables only.
-> It expires tomorrow at this time whether I use it or not.
+> "This is what it's allowed to spend. Forty pounds, maximum per order. Consumables only.
+> It expires tomorrow whether I use it or not.
 > A cap, a category, an expiry — and it can't talk its way past any of them."
 
-**Do:** Point at the **SPENDING** block — *"£40.00 maximum per order · Consumables only ·
-Until 27 Sept 2026"*. Point at **Turn off automatic spending** but don't click it yet.
+**Do:** Point at the preset limit pills (£10, £25, £40, £60). Hover **Turn off automatic spending**
+but don't click yet. (If spending is ever turned off, a "Resume automatic spending" button lets
+you restore spending immediately).
+
+### 0:45 — Minimisation (`What Replenish knows`)
+
+> "And this is the entire record of what it knows about me. Three items.
+> Not my profile, not my purchase history, not my browsing. What I buy,
+> how long it lasts, and when it runs out."
+
+**Do:** Point at the items (Coffee beans, Oat milk, Toothpaste). Point at **"That's the whole record."**
 
 ### 1:00 — Run it
 
 > "So let's let it shop."
 
-**Do:** Click **Check prices & reorder**. Narrate what appears:
-
+**Do:** Scroll back to the top. Point to the refill switcher pills (e.g. Coffee beans or Oat milk).
+Click **Check prices & reorder**. Narrate the status line as it changes:
 
 - *"Checking what is about to run out."*
 - *"Coffee is four days out. Comparing shops."*
-- *"It chose Waitrose at £13.50."*
-- *"Order placed."*
+- *"Lowest price found: Waitrose at £13.50. Your spending permission allows Shopify Dev
+  Store, so that is where the test order will go."*
+- *"Test order … placed at Shopify Dev Store for £12.00. No money was charged."*
 
-**This is the live moment.** If it's slow, narrate the wait — don't apologise for it.
+**This is the live moment.** The third line is the strongest sentence on screen: the
+cheapest shop is not the shop it is allowed to use, and it says so. Let it land. If it's
+slow, narrate the wait — don't apologise for it.
 
-### 1:30 — The audit trail (`Recent activity`)
+### 1:30 — The receipts (`Recent activity`)
 
 > "Here's the part I'd want if I were you. Every decision, the options it compared,
 > and the reason. Not a log — a *receipt*."
 
-**Do:** The two newest cards appear on their own — a `✓ Order placed` and a `£ Prices checked`.
-**The refusal is now hidden**: click **Show N earlier events** to reveal the `Order blocked`
-row. Do that on stage — it is the strongest thing in the demo and it is behind a click.
+**Do:** Scroll to **Recent activity**. Newest is on top; the top two rows are the run you
+just did:
 
-- `compare` — with all three shops and their prices, and a link to where each price came from
-- `order.placed` — `Shopify Dev Store · £12.00 (asked £13.50)`
-- `order.blocked` — `£13.50 · cap £40.00`
+- **Order placed · Completed** — open **View receipt**: *Shopify Dev Store*, *£12.00 (asked
+  £13.50)*, and the Shopify order reference.
+- **Prices checked · Within budget** — the sentence under it is Grok's explanation. Open
+  **View receipt**: all three shops, **Lowest found** on Waitrose, and a **Source ↗** link
+  for each price.
 
-That third line is the strongest thing on the screen: **the agent tried, and was refused.**
+**To show the refusal:** click **Show N earlier events** to reveal the seeded **Order stopped · Blocked**
+row. Show judges that when the token was inactive or over cap, the system denied the order.
 
-### 1:48 — Revoke
+### 1:48 — Turn it off
 
 > "And when I've had enough —"
 
-**Do:** Click **Turn off automatic spending**. It reads **Off**, and the permission count
-updates.
+**Do:** Click **Turn off automatic spending**. The badge flips to **Paused** and the card reads
+**Automatic spending is off — Replenish cannot place an order.** The button at the top now
+reads **Reordering paused**.
 
-> "— it's done. Not paused, not gated behind a setting. It cannot spend a penny."
+> "— it's done. Not paused behind a setting. It cannot spend a penny."
 
 ### 1:54 — The proof
 
 > "One last thing. I said only I can see what it knows."
 
-**Do:** Click the **SIGNED IN AS — Demo shopper** control at the top of the panel (account
-switching now lives in that menu). Choose the other account. Same panel, same screen —
-**empty**. Then switch back.
+**Do:** Click **Signed in as Demo shopper** (top left account menu) → **View as Someone else**. Same
+page — **No shopping data for this account**. Then switch back to **Demo shopper**.
 
 > "Same code, same database, different person. The locks are real, not UI."
 
 **Close on:** *"That's the whole idea. The agent does the buying — I keep the power."*
+
+### Optional — the bot is refused (only if you have 20 seconds spare)
+
+After **Turn off automatic spending**, message the Replenish bot *"Coffee beans are running
+low. Reorder them."* It calls the same API with the demo user's token and is refused, and says
+so. Rehearse this once first — if the refusal also adds a new **Order stopped** row after a
+refresh, you can point at it as live.
 
 ---
 
@@ -124,16 +145,15 @@ switching now lives in that menu). Choose the other account. Same panel, same sc
 
 | Symptom | What to do |
 |---|---|
-| The reorder button won't work | You forgot `npm run reset:demo`. Say "let me reset the demo state" and rerun it — takes 2 seconds. |
+| Button reads **Reordering paused** or is greyed out | You forgot `npm run reset:demo`. Say "let me reset the demo state" and rerun it — takes 2 seconds. Or click the green **Resume automatic spending** button. |
 | Compare is slow (>10s) | It's calling live price APIs. Keep talking: *"it's checking three shops in real time."* Don't click twice. |
-| An API error appears in red | Read it out. The error messages are written to be legible and honest. Then fall back to the recorded video. |
-| Order says `escalate` | That means the cheapest price exceeded the cap — a *good* outcome. *"It refused to overspend."* |
+| **Something went wrong** box appears | Read it out. The error messages are written to be legible and honest. Then fall back to the recorded video. |
+| **Prices checked · Needs approval** | The cheapest price exceeded the limit — a *good* outcome. *"It refused to overspend."* |
+| Bot's order fails on a foreign key | It's holding ids from before the reset. Restart the bot. |
 | Total network failure | Play the recorded fallback. Mention it's a recording. Don't debug live. |
 
-**Never** click **Turn off automatic spending** before the audit-trail beat. It's the
-ending, and it's irreversible.
-
-**Turn it back on after the demo** if you're demoing again — or just rerun `npm run reset:demo`.
+**Never** click **Turn off automatic spending** before the receipts beat. It's the ending, and
+it's irreversible (though you can resume with the resume button if needed).
 
 ---
 
@@ -143,18 +163,29 @@ ending, and it's irreversible.
 Real order object, real Shopify store, flagged as a test order so no money moves. Say that
 plainly — it's the right answer, not a hedge.
 
-**"Why £12.00 when it picked £13.50?"**
+**"Why £12.00 when it found £13.50?"**
 Shopify is authoritative on price; the dev store's catalogue price differs from the scraped
-retail price. We store what was actually charged. This is a *feature* — we found that
-mismatch and fixed it rather than shipping two numbers that disagree.
+retail price. We store what was actually charged — the receipt shows both. This is a
+*feature* — we found that mismatch and fixed it rather than shipping two numbers that disagree.
+
+**"Why didn't it buy from Waitrose?"**
+The spending permission is scoped to one shop. It compares everywhere, but it can only spend
+where you allowed it — and the status line and receipt say that out loud.
+
+**"Where's Grok?"**
+Two places. The **Replenish bot** is the agent that wants to spend — and gets refused when it
+shouldn't. The **xAI API** writes the sentence under *Prices checked*. Neither can authorise
+anything: the limit and the policy engine sit between both of them and the card.
 
 **"What stops the AI from overspending?"**
-Not the prompt. The token — cap, category, shop scope, expiry — enforced server-side, with
-the JWT required to spend at all. The prompt could be fully hijacked and the cap still holds.
+Not the prompt. The spending permission — cap, category, shop, expiry — enforced server-side,
+with the user's login token required to spend at all. The prompt could be fully hijacked and
+the cap still holds.
 
 **"Couldn't it just call a different shop?"**
-The token is shop-scoped. Wrong shop returns `deny`, and the attempt is written to the audit
-trail.
+The permission is shop-scoped. Wrong shop returns `deny`, and the attempt is written to the
+activity trail.
 
 **"What happens if you delete the app?"**
-Revoke is server-side. The token stops working immediately, wherever it's running.
+Turning spending off is server-side. The permission stops working immediately, wherever the
+agent is running.

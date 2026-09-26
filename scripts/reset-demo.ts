@@ -139,15 +139,31 @@ if (ordersBefore !== ordersAfter) {
   );
 }
 fail(
-  'seeded the consumable',
+  'seeded consumables',
   (
-    await db.from('consumables').insert({
-      user_id: userId,
-      product_key: DEMO_PRODUCT,
-      cadence_days: 28,
-      source: 'recharge',
-      est_empty_date: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString().slice(0, 10),
-    })
+    await db.from('consumables').insert([
+      {
+        user_id: userId,
+        product_key: DEMO_PRODUCT,
+        cadence_days: 28,
+        source: 'recharge',
+        est_empty_date: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+      },
+      {
+        user_id: userId,
+        product_key: 'oat_milk_6x1l',
+        cadence_days: 14,
+        source: 'recharge',
+        est_empty_date: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+      },
+      {
+        user_id: userId,
+        product_key: 'toothpaste_100ml',
+        cadence_days: 60,
+        source: 'csv_seed',
+        est_empty_date: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+      },
+    ])
   ).error,
 );
 
