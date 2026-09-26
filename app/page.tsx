@@ -12,7 +12,15 @@ type Who = keyof typeof ACCOUNTS;
 
 type Consumable = { id: string; product_key: string; cadence_days: number; est_empty_date: string; source: string };
 type Token = { id: string; max_amount: string; category_scope: string; expires_at: string; status: string };
-type Audit = { id: string; action: string; choice: string; reason: string; created_at: string };
+type Audit = {
+  id: string;
+  action: string;
+  choice: string;
+  reason: string;
+  created_at: string;
+  inputs: unknown;
+  options: unknown;
+};
 type Consent = { category: string; granted: boolean };
 
 const card: React.CSSProperties = {
@@ -21,6 +29,68 @@ const card: React.CSSProperties = {
 const h2: React.CSSProperties = { margin: '0 0 4px', fontSize: 15, fontWeight: 700 };
 const sub: React.CSSProperties = { margin: '0 0 12px', fontSize: 12.5, color: '#6b7280' };
 const mono: React.CSSProperties = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 };
+
+function gbp(value: unknown): string | null {
+  const amount = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(amount)) return null;
+  return `£${amount.toFixed(2)}`;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function AuditOptions({ inputs, options }: { inputs: unknown; options: unknown }) {
+  const shops = Array.isArray(options)
+    ? options.flatMap((raw) => {
+        const row = record(raw);
+        if (!row || (typeof row.shop !== 'string' && row.price == null)) return [];
+        return [{
+          shop: typeof row.shop === 'string' ? row.shop : 'shop',
+          price: gbp(row.price),
+          evidenceUrl: typeof row.evidence_url === 'string' ? row.evidence_url : null,
+        }];
+      })
+    : [];
+
+  if (shops.length > 0) {
+    return (
+      <ul style={{ margin: '8px 0 0', padding: 0, listStyle: 'none' }}>
+        {shops.map((option, index) => (
+          <li key={`${option.shop}-${index}`} style={{ ...mono, padding: '3px 0', color: '#374151' }}>
+            {option.shop}
+            {option.price ? ` · ${option.price}` : ''}
+            {option.evidenceUrl ? (
+              <>
+                {' · '}
+                <a href={option.evidenceUrl} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8' }}>
+                  evidence
+                </a>
+              </>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const bag: Record<string, unknown> = {};
+  for (const source of [inputs, ...(Array.isArray(options) ? options : [options])]) {
+    const row = record(source);
+    if (row) Object.assign(bag, row);
+  }
+  const cap = gbp(bag.cap);
+  const parts = [
+    typeof bag.shop === 'string' ? bag.shop : typeof bag.shop_id === 'string' ? `shop ${bag.shop_id}` : null,
+    gbp(bag.amount),
+    bag.order_ref != null && bag.order_ref !== '' ? `order ${bag.order_ref}` : null,
+    cap ? `cap ${cap}` : null,
+  ].filter(Boolean);
+
+  if (parts.length === 0) return null;
+  return <div style={{ ...mono, marginTop: 6, color: '#374151' }}>{parts.join(' · ')}</div>;
+}
 
 export default function Page() {
   const [who, setWho] = useState<Who>('demo');
@@ -217,6 +287,7 @@ export default function Page() {
                 </span>
               </div>
               <div style={{ fontSize: 13, color: '#4b5563', marginTop: 3 }}>{r.reason}</div>
+              <AuditOptions inputs={r.inputs} options={r.options} />
             </div>
           ))
         )}
