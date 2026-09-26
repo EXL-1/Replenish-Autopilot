@@ -80,12 +80,66 @@ button, input { font-family: inherit; }
   to { opacity: 1; transform: none; }
 }
 
-.shell {
+.page {
   position: relative;
   z-index: 1;
+}
+
+.account-dock {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 5;
+  width: min(280px, calc(100vw - 40px));
+  text-align: left;
+}
+
+.account-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.account-trigger:hover .account-name,
+.account-trigger[aria-expanded='true'] .account-name {
+  color: var(--accent-deep);
+}
+
+.account-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.account-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.account-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.shell {
   max-width: 780px;
   margin: 0 auto;
-  padding: 48px 20px 80px;
+  padding: 188px 20px 80px;
 }
 
 .shell > * { animation: fade-up 0.7s var(--ease) both; }
@@ -97,7 +151,11 @@ button, input { font-family: inherit; }
 .shell > *:nth-child(7) { animation-delay: 0.42s; }
 .shell > *:nth-child(8) { animation-delay: 0.49s; }
 
-.hero { margin-bottom: 28px; }
+.hero {
+  width: 100vw;
+  margin: 0 calc(50% - 50vw) 36px;
+  text-align: center;
+}
 
 .eyebrow {
   margin: 0 0 10px;
@@ -110,10 +168,11 @@ button, input { font-family: inherit; }
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-size: clamp(1.45rem, calc((100vw - 64px) / 13.85), 5.6rem);
   font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.06;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  white-space: nowrap;
   background: linear-gradient(120deg, var(--text) 20%, var(--accent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -121,10 +180,10 @@ button, input { font-family: inherit; }
 }
 
 .lede {
-  margin: 14px 0 0;
-  max-width: 36rem;
+  margin: 18px auto 0;
+  max-width: 34rem;
   color: var(--sub);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   line-height: 1.7;
 }
 
@@ -175,29 +234,6 @@ button, input { font-family: inherit; }
 }
 
 .sub.flat { margin: 0; }
-
-.identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.identity-copy { flex: 1; min-width: 200px; }
-
-.stat { text-align: right; }
-
-.stat-value {
-  font-variant-numeric: tabular-nums;
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  background: linear-gradient(120deg, var(--text), var(--accent));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
 
 .switcher { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 
@@ -342,9 +378,18 @@ button, input { font-family: inherit; }
   line-height: 1.6;
 }
 
+@media (max-width: 720px) {
+  .account-dock {
+    position: static;
+    width: auto;
+    margin: 16px 16px 0;
+    text-align: left;
+  }
+
+  .shell { padding: 28px 16px 64px; }
+}
+
 @media (max-width: 480px) {
-  .shell { padding: 32px 16px 64px; }
-  .stat { text-align: left; }
   .blob { filter: blur(64px); }
 }
 

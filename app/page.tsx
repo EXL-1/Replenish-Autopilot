@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { browserClient } from '@/lib/supabase-browser';
 
 const PASSWORD = 'ReplenishDemo2026';
@@ -128,11 +128,12 @@ export default function Page() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [consent, setConsent] = useState<Consent[]>([]);
-  const [shopCount, setShopCount] = useState(0);
   const [shopNames, setShopNames] = useState<Record<string, string>>({});
   const [userId, setUserId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [runNote, setRunNote] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLElement>(null);
 
   const load = useCallback(async (key: Who) => {
     setBusy(true);
@@ -161,7 +162,6 @@ export default function Page() {
       setTokens((t.data ?? []) as Token[]);
       setAudit((a.data ?? []) as Audit[]);
       setConsent((k.data ?? []) as Consent[]);
-      setShopCount((s.data ?? []).length);
       setShopNames(
         Object.fromEntries(
           ((s.data ?? []) as { id: string; name: string }[]).map((r) => [r.id, r.name]),
@@ -177,6 +177,22 @@ export default function Page() {
   useEffect(() => {
     void load(who);
   }, [who, load]);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    function onPointer(event: MouseEvent) {
+      if (!accountRef.current?.contains(event.target as Node)) setAccountOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAccountOpen(false);
+    }
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [accountOpen]);
 
   async function runLoop() {
     const token = tokens.find((t) => t.status === 'active');
@@ -257,7 +273,6 @@ export default function Page() {
   }
 
   const live = tokens.filter((t) => t.status === 'active');
-  const totalRows = consumables.length + tokens.length + audit.length + consent.length + shopCount;
 
   const choiceClass = (choice: string) =>
     choice === 'allow' || choice === 'escalate' ? `choice choice-${choice}` : 'choice choice-deny';
@@ -269,37 +284,45 @@ export default function Page() {
         <div className="blob blob-b" />
         <div className="blob blob-c" />
       </div>
+      <div className="page">
+      <aside className="account-dock" ref={accountRef} aria-label="Signed-in account">
+        <button
+          type="button"
+          className="account-trigger"
+          aria-expanded={accountOpen}
+          aria-haspopup="menu"
+          onClick={() => setAccountOpen((open) => !open)}
+        >
+          <span className="account-kicker">Signed in as</span>
+          <span className="account-name">{ACCOUNTS[who].label}</span>
+        </button>
+        {accountOpen && (
+          <div className="account-menu" role="menu">
+            {(Object.keys(ACCOUNTS) as Who[])
+              .filter((k) => k !== who)
+              .map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="menuitem"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setWho(k);
+                    setAccountOpen(false);
+                  }}
+                >
+                  View as {ACCOUNTS[k].label}
+                </button>
+              ))}
+          </div>
+        )}
+      </aside>
       <main className="shell">
         <header className="hero">
           <p className="eyebrow">Privacy panel</p>
           <h1>Replenish Autopilot</h1>
-          <p className="lede">Your cart runs itself — and only you can see what it knows.</p>
+          <p className="lede">Your cart runs itself | only you can see what it knows.</p>
         </header>
-
-        <div className="card identity">
-          <div className="identity-copy">
-            <h2>Signed in as {ACCOUNTS[who].label}</h2>
-            <p className="sub flat">
-              {ACCOUNTS[who].email} — this panel reads the database with <em>their</em> credentials.
-            </p>
-          </div>
-          <div className="stat">
-            <div className="stat-value">{busy ? '…' : totalRows}</div>
-            <p className="sub flat">rows visible</p>
-          </div>
-        </div>
-
-        <div className="switcher">
-          {(Object.keys(ACCOUNTS) as Who[]).map((k) => (
-            <button
-              key={k}
-              onClick={() => setWho(k)}
-              className={who === k ? 'btn btn-accent' : 'btn btn-ghost'}
-            >
-              View as {ACCOUNTS[k].label}
-            </button>
-          ))}
-        </div>
 
         {who === 'demo' && (
           <section className="card">
@@ -401,6 +424,7 @@ export default function Page() {
           Rows are scoped to you by row-level security. Switch identity above and the other person&apos;s view is empty.
         </p>
       </main>
+      </div>
     </>
   );
 }
