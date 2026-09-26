@@ -5,7 +5,7 @@ export type ReorderSignal = {
   product_key: string;
   est_empty_date: string;
   days_until_empty: number;
-  source: 'recharge' | 'seed';
+  source: 'recharge' | 'csv_seed';
 };
 
 export type Verdict =

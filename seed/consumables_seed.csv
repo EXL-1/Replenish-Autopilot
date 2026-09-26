@@ -1,5 +1,5 @@
 product_key,cadence_days,last_delivery,est_empty_date,source
-coffee_beans_1kg,28,2026-09-10,2026-10-08,seed
-oat_milk_6x1l,14,2026-09-18,2026-10-02,seed
-laundry_pods_50,90,2026-08-01,2026-10-30,seed
-toothpaste_100ml,60,2026-09-01,2026-10-31,seed
+coffee_beans_1kg,28,2026-09-10,2026-10-08,csv_seed
+oat_milk_6x1l,14,2026-09-18,2026-10-02,csv_seed
+laundry_pods_50,90,2026-08-01,2026-10-30,csv_seed
+toothpaste_100ml,60,2026-09-01,2026-10-31,csv_seed

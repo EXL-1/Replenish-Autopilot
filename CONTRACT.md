@@ -1,47 +1,91 @@
-# CONTRACT.md — frozen interfaces
+# CONTRACT
 
-> **Agreed at the 10:30 checkpoint. Non-negotiable after that.**
-> Owner split: **Lucas = trust layer** · **Gabriel = brain + face**
-> Rule: anything *cross-boundary* requires both. Decided in <2 min or deferred to the next gate.
+Frozen at the 10:30 checkpoint. Gabriel emits signals and the panel. Lucas owns tokens, policy, orders, and the audit log. After this file is on `main`, neither side invents a field the other must read.
 
-## 1. `ReorderSignal` — the one object that crosses the boundary
-Emitted by Gabriel's scheduler · consumed by Lucas's policy engine.
+Change rule: any rename or new boundary field is a commit to this file, agreed by both, before code depends on it. Internal columns that the other person never reads are allowed.
 
-```ts
-type ReorderSignal = {
-  consumable_id: string;
-  product_key: string;
-  est_empty_date: string;   // ISO date
-  days_until_empty: number;
-  source: 'recharge' | 'seed';
-};
+## 1. ReorderSignal
+
+The only object that crosses the ownership line. Gabriel’s scheduler emits it. Lucas’s policy engine consumes it.
+
+```json
+{
+  "consumable_id": "uuid",
+  "product_key": "string",
+  "est_empty_date": "date",
+  "days_until_empty": "number",
+  "source": "recharge | csv_seed"
+}
 ```
 
 ## 2. Policy verdict
-```ts
-type Verdict =
-  | { decision: 'allow' }
-  | { decision: 'deny'; reason: string }
-  | { decision: 'escalate'; reason: string };
+
+Returned to the agent loop. `deny` and `escalate` never place an order.
+
+- `allow`
+- `deny(reason)`
+- `escalate(reason)`
+
+`check_token(token_id)` is the single integration call: cap, category, and TTL in; one of the three verdicts out.
+
+## 3. Tables
+
+Exactly these eight. Every table has `user_id`. RLS is `auth.uid() = user_id`. A second user sees zero rows.
+
+`users`, `consumables`, `shops`, `price_findings`, `spend_tokens`, `orders`, `audit_log`, `consent`
+
+## 4. Token
+
+`spend_tokens` is minted and revoked only from the privacy panel.
+
+| Column | Meaning |
+|---|---|
+| `max_amount` | Spend cap |
+| `category_scope` | Allowed category (demo: consumables) |
+| `issued_at` | When the token was minted |
+| `expires_at` | TTL |
+| `revoked_at` | Set on one-tap revoke; null while live |
+| `status` | Live or revoked. Revoke flips this; the policy engine then denies |
+
+## 5. Audit record
+
+Written by Lucas’s order path. This is what the panel renders.
+
+```json
+{
+  "action": "string",
+  "inputs": "jsonb",
+  "options": "jsonb",
+  "choice": "string",
+  "reason": "string",
+  "token_id": "uuid"
+}
 ```
-`deny` and `escalate` **never** place an order.
 
-## 3. Table names (8, exact)
-`users, consumables, shops, price_findings, spend_tokens, orders, audit_log, consent`
+## 6. Who writes what
 
-## 4. Token contract
-`spend_tokens`: `max_amount, category_scope, issued_at, expires_at, revoked_at, status`
-Minted and revoked **only** via the privacy panel.
+| Data | Writer | Reader |
+|---|---|---|
+| `consumables`, ReorderSignal | Gabriel | Lucas |
+| `price_findings` | Gabriel | both |
+| `spend_tokens`, `orders`, `audit_log` | Lucas | Gabriel’s panel |
+| `consent` | privacy panel | both |
 
-## 5. Audit record (written by Lucas's order path)
-```ts
-{ action, inputs(jsonb), options(jsonb), choice, reason, token_id }
-```
-Gabriel's UI reads `audit_log + spend_tokens + consent` — **nothing else**.
+Gabriel’s UI reads `audit_log`, `spend_tokens`, and `consent` only. It does not read other tables to render the panel.
 
-## 6. Integration checkpoints
+## 7. Integration checkpoints
+
 | Time | Checkpoint |
 |---|---|
-| 10:30 | this contract frozen (both) |
+| 10:30 | this contract frozen (both) — done, on `main` |
 | 13:30 | first merge — order path live |
 | 14:30 | second merge — panel + revoke |
+
+## 8. As-built notes (Lucas, trust layer)
+
+- `ReorderSignal.source` is `recharge | csv_seed` — the code, the CSV seed, and the
+  `consumables.source` column all use those exact two literals. No other value is emitted.
+- `checkToken(token, { amount, category, shop_id })` in `lib/policy-engine.ts` returns the
+  verdict. Ordering: revoked → expired → wrong shop → wrong category → over cap (escalate).
+- `price_findings` has **no `user_id`** column (it hangs off `consumable_id`), so its RLS
+  policy derives ownership through the parent consumable. Do not add a column to "fix" it.

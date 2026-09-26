@@ -31,7 +31,7 @@ export async function GET(req: Request) {
         product_key: c.product_key,
         est_empty_date: c.est_empty_date,
         days_until_empty: days,
-        source: (c.source as ReorderSignal['source']) ?? 'seed',
+        source: (c.source as ReorderSignal['source']) ?? 'csv_seed',
       };
     })
     .filter((s) => s.days_until_empty <= THRESHOLD_DAYS);
