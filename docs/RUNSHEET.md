@@ -176,6 +176,10 @@ where you allowed it — and the status line and receipt say that out loud.
 Two places. The **Replenish bot** is the agent that wants to spend — and gets refused when it
 shouldn't. The **xAI API** writes the sentence under *Prices checked*. Neither can authorise
 anything: the limit and the policy engine sit between both of them and the card.
+*(Point to the "How Grok Bot interacts with Replenish" architecture card on the page to show judges the credential boundary).*
+
+**"Does the Grok Bot have your store API key?"**
+No. Point directly to the architecture card: the Grok Bot holds **only the shopper's temporary scoped JWT** (Bearer token). It has zero store admin secrets, zero elevated privileges, and cannot bypass the server's policy engine.
 
 **"What stops the AI from overspending?"**
 Not the prompt. The spending permission — cap, category, shop, expiry — enforced server-side,

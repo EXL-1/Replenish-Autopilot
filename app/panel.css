@@ -1991,3 +1991,234 @@ a:focus-visible {
     line-height: 1.22;
   }
 }
+
+/* Trust Architecture Diagram & Explainer */
+.arch-card {
+  padding: 30px;
+}
+
+.arch-pipeline {
+  display: grid;
+  grid-template-columns: 1fr 100px 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.arch-column {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: var(--r);
+  border: 1px solid var(--fleek-line);
+  background: var(--fleek-paper);
+}
+
+.arch-step-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fleek-sub);
+  background: var(--fleek-cream);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--fleek-line);
+}
+
+.arch-step-icon {
+  font-size: 2rem;
+  margin: 14px 0 6px;
+}
+
+.arch-column h3 {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fleek-ink);
+}
+
+.arch-role {
+  margin: 4px 0 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fleek-sub);
+}
+
+.arch-credential {
+  padding: 12px 14px;
+  border-radius: var(--r);
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.arch-credential-tag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.arch-credential strong {
+  font-size: 0.94rem;
+  font-weight: 800;
+}
+
+.arch-credential span:last-child {
+  font-size: 0.72rem;
+}
+
+.arch-credential-user {
+  background: #fef8e7;
+  border: 1px solid rgba(248, 198, 66, 0.5);
+  color: #7a5405;
+}
+
+.arch-credential-user strong {
+  color: #523700;
+}
+
+.arch-credential-server {
+  background: #fdf3ef;
+  border: 1px solid rgba(242, 92, 42, 0.4);
+  color: #8c2603;
+}
+
+.arch-credential-server strong {
+  color: #631800;
+}
+
+.arch-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--fleek-ink);
+}
+
+.arch-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.arch-list li code {
+  font-size: 0.76rem;
+  padding: 1px 4px;
+  background: var(--fleek-cream);
+  border: 1px solid var(--fleek-line);
+  border-radius: 4px;
+}
+
+.arch-list li span {
+  font-weight: 800;
+  color: #047857;
+  flex-shrink: 0;
+}
+
+.arch-list li.arch-negative {
+  color: var(--fleek-sub);
+}
+
+.arch-list li.arch-negative span {
+  color: #b91c1c;
+}
+
+.arch-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.arch-divider-line {
+  flex: 1;
+  width: 1px;
+  background: var(--fleek-line);
+  min-height: 24px;
+}
+
+.arch-divider-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--fleek-paper);
+  border: 1px solid var(--fleek-line);
+  border-radius: var(--r);
+  padding: 8px 10px;
+  box-shadow: 0 4px 12px -4px rgba(15, 15, 15, 0.08);
+}
+
+.arch-divider-tag span {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fleek-muted);
+}
+
+.arch-divider-tag strong {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--fleek-ink);
+  line-height: 1.3;
+}
+
+.arch-footer {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--fleek-line);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.arch-footer-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--fleek-yellow);
+  color: var(--fleek-ink);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.arch-footer p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--fleek-sub);
+  flex: 1;
+  min-width: 240px;
+}
+
+@media (max-width: 768px) {
+  .arch-pipeline {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .arch-divider {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .arch-divider-line {
+    height: 1px;
+    width: 100%;
+    min-height: 0;
+  }
+}
+

@@ -866,6 +866,71 @@ export default function Page() {
                 </div>
               </section>
 
+              <section className="page-section" aria-labelledby="arch-title">
+                <div className="section-heading">
+                  <p className="section-label">Trust &amp; Credential Boundaries</p>
+                  <h2 id="arch-title">How Grok Bot interacts with Replenish</h2>
+                  <p>The agent never holds store admin keys, server secrets, or unconstrained spending authority.</p>
+                </div>
+                <div className="card arch-card">
+                  <div className="arch-pipeline">
+                    <div className="arch-column">
+                      <div className="arch-step-badge">Client &amp; Agent</div>
+                      <div className="arch-step-icon" aria-hidden="true">🤖</div>
+                      <h3>Grok Bot</h3>
+                      <p className="arch-role">Autonomous Reordering Agent</p>
+                      <div className="arch-credential arch-credential-user">
+                        <span className="arch-credential-tag">Credentials Held</span>
+                        <strong>Scoped User JWT</strong>
+                        <span>Bearer token · user-scoped RLS</span>
+                      </div>
+                      <ul className="arch-list">
+                        <li><span>✓</span> Reads due refill signals via <code>/api/signal</code></li>
+                        <li><span>✓</span> Compares live retailer prices via <code>/api/compare</code></li>
+                        <li><span>✓</span> Attempts orders strictly inside spending permission</li>
+                        <li className="arch-negative"><span>×</span> No Shopify admin token or store secrets</li>
+                        <li className="arch-negative"><span>×</span> Cannot spend if cap exceeded or revoked</li>
+                      </ul>
+                    </div>
+
+                    <div className="arch-divider" aria-hidden="true">
+                      <div className="arch-divider-line" />
+                      <div className="arch-divider-tag">
+                        <span>Enforced via</span>
+                        <strong>Bearer JWT Verification</strong>
+                      </div>
+                      <div className="arch-divider-line" />
+                    </div>
+
+                    <div className="arch-column">
+                      <div className="arch-step-badge">Security Guardrail</div>
+                      <div className="arch-step-icon" aria-hidden="true">🛡️</div>
+                      <h3>Replenish Trust Engine</h3>
+                      <p className="arch-role">Server-Side Policy &amp; Audit Layer</p>
+                      <div className="arch-credential arch-credential-server">
+                        <span className="arch-credential-tag">Protected Secrets</span>
+                        <strong>Server-Only Credentials</strong>
+                        <span>Shopify Admin Token · Service Role</span>
+                      </div>
+                      <ul className="arch-list">
+                        <li><span>✓</span> <code>checkToken()</code> policy engine evaluates cap &amp; category</li>
+                        <li><span>✓</span> Explains decisions via xAI API (no spend authority)</li>
+                        <li><span>✓</span> Enforces instant one-tap revoke server-side</li>
+                        <li><span>✓</span> Writes unforgeable audit log to Supabase</li>
+                        <li><span>✓</span> Routes test order directly to Shopify Dev Store</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="arch-footer">
+                    <span className="arch-footer-badge">Security Architecture</span>
+                    <p>
+                      The bot operates as an <strong>untrusted client</strong> holding only your revocable session token.
+                      Even if the agent hallucinates or is prompted to overspend, the server-side guardrail denies the order.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
               <section className="page-section" aria-labelledby="activity-title">
                 <div className="section-heading">
                   <p className="section-label">Clear and accountable</p>
