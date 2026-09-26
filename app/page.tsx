@@ -192,7 +192,14 @@ export default function Page() {
     setError(null);
     setRunNote('Checking what is about to run out.');
     try {
-      const signalRes = await fetch(`/api/signal?user_id=${userId}`);
+      // The API routes verify the caller's JWT. The panel and the agent go through
+      // the same door — there is no unauthenticated path to spending.
+      const { data: sessionData } = await browserClient().auth.getSession();
+      const jwt = sessionData.session?.access_token;
+      if (!jwt) throw new Error('not signed in');
+      const authHeader = { Authorization: `Bearer ${jwt}` };
+
+      const signalRes = await fetch(`/api/signal?user_id=${userId}`, { headers: authHeader });
       const signalJson = await signalRes.json();
       if (!signalRes.ok) throw new Error(signalJson.error ?? 'signal failed');
       const signal = signalJson.signals?.[0];
@@ -204,7 +211,7 @@ export default function Page() {
       setRunNote(`${signal.product_key.replaceAll('_', ' ')} is ${signal.days_until_empty} days out. Comparing shops.`);
       const compareRes = await fetch('/api/compare', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
           consumable_id: signal.consumable_id,
           max_amount: Number(token.max_amount),
@@ -222,7 +229,7 @@ export default function Page() {
       setRunNote(`Chose ${pick.shop_name} at £${Number(pick.price).toFixed(2)}. Placing the order on the shop this token allows.`);
       const orderRes = await fetch('/api/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
           token_id: token.id,
           consumable_id: signal.consumable_id,
