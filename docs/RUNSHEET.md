@@ -1,7 +1,13 @@
-# Run sheet — 3 minutes
+# Run sheet — 2 minutes
 
-The mechanics take **~10–17 seconds**. Everything else is you talking. Don't rush the
-clicks and don't fill silence with features; the demo is four sentences and four clicks.
+**The format is max 2 minutes.** (Earlier drafts of this sheet were written for 3; the
+event page says *"Every team submits a live demo at code freeze. Max 2 minutes."*)
+
+The mechanics take **~13 seconds**. Everything else is you talking. Don't rush the clicks
+and don't fill silence with features; the demo is four sentences and four clicks.
+
+If you are running long, cut in this order: **the minimisation beat, then the consent beat.**
+Never cut the audit trail, the revoke, or the identity switch — those are the pitch.
 
 ---
 
@@ -9,12 +15,15 @@ clicks and don't fill silence with features; the demo is four sentences and four
 
 ```bash
 git pull origin main
-npm run reset:demo
+npm run reset:demo        # resets the demo state
 ```
 
 That gives you exactly one live token, the single consumable, and the three-beat trail.
 **Do not skip it** — revoking is irreversible, so if you demo twice without resetting, the
 second run has no live token.
+
+**If you are using the Grok Bot beat: restart the bot after resetting.** `reset:demo`
+recreates the consumable, and any agent still holding the old ids will fail its next order.
 
 Then open a browser tab on **https://replenish-autopilot.vercel.app** and leave it there.
 Confirm you can see "Signed in as Demo shopper" and a **Run replenishment** button that is
@@ -22,7 +31,7 @@ Confirm you can see "Signed in as Demo shopper" and a **Run replenishment** butt
 
 ---
 
-## The three minutes
+## The two minutes
 
 ### 0:00 — Don't open with the product
 
@@ -33,14 +42,14 @@ Confirm you can see "Signed in as Demo shopper" and a **Run replenishment** butt
 
 This is the whole pitch. If you get only one sentence out, get that one out.
 
-### 0:20 — Consent (`What I let it watch`)
+### 0:15 — Consent (`What I let it watch`)
 
 > "It watches exactly one category. Consumables — on. Household — on.
 > Electronics — off. That's not a preference screen, that's the boundary of what it can see."
 
 **Do:** Point at the three chips. Don't click anything.
 
-### 0:40 — Minimisation (`What it actually knows about me`)
+### 0:30 — Minimisation (`What it actually knows about me`)
 
 > "This is the entire record of what it knows about me. One line.
 > Not my profile, not my purchase history, not my browsing. One row: what I bought,
@@ -48,7 +57,7 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 
 **Do:** Read the single row aloud — `coffee_beans_1kg · every 28 days · empty 2026-09-30`.
 
-### 1:00 — The token (`What it's allowed to spend`)
+### 0:45 — The token (`What it's allowed to spend`)
 
 > "This is what it's allowed to spend. Forty pounds. Consumables only.
 > It expires tomorrow at this time whether I use it or not.
@@ -56,7 +65,7 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 
 **Do:** Hover the **Revoke** button but don't click yet.
 
-### 1:30 — Run it
+### 1:00 — Run it
 
 > "So let's let it shop."
 
@@ -69,7 +78,7 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 
 **This is the live moment.** If it's slow, narrate the wait — don't apologise for it.
 
-### 2:00 — The audit trail (`What it did, and why`)
+### 1:30 — The audit trail (`What it did, and why`)
 
 > "Here's the part I'd want if I were you. Every decision, the options it compared,
 > and the reason. Not a log — a *receipt*."
@@ -82,7 +91,7 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 
 That third line is the strongest thing on the screen: **the agent tried, and was refused.**
 
-### 2:30 — Revoke
+### 1:48 — Revoke
 
 > "And when I've had enough —"
 
@@ -90,7 +99,7 @@ That third line is the strongest thing on the screen: **the agent tried, and was
 
 > "— it's done. Not paused, not gated behind a setting. It cannot spend a penny."
 
-### 2:45 — The proof
+### 1:54 — The proof
 
 > "One last thing. I said only I can see what it knows."
 

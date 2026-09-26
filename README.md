@@ -6,7 +6,7 @@
 > that makes your cart safe to hand over.
 
 Grok Bot Commerce · London Hackathon — Fleek HQ, 26 September 2026
-**Team:** Lucas Malik (trust layer) · Gabriel Moura (brain + face)
+**Track:** Agentic Commerce · **Team:** Lucas Malik (trust layer) · Gabriel Moura (brain + face)
 
 **Live:** https://replenish-autopilot.vercel.app
 **Run sheet:** [`docs/RUNSHEET.md`](./docs/RUNSHEET.md)
@@ -114,7 +114,7 @@ routes enforce their own rules:
 
 | Check | Result |
 |---|---|
-| Full sequence, end to end | **7/7 pass, ~9s** (against a 180s demo budget) |
+| Full sequence, end to end | **7/7 pass, ~13s** (against a 120s demo budget) |
 | Grok explanation | `explained_by: grok`, ~1s; falls back to the template reason if the model is slow, down, or returns junk |
 | Policy engine | `npm run check:policy` — 7/7 (cap, category, TTL, revoke, wrong shop, no token) |
 | Live price compare | 3 shops, stable pick, evidence URLs |
