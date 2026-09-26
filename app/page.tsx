@@ -30,13 +30,6 @@ type Audit = {
 };
 type Consent = { category: string; granted: boolean };
 
-const card: React.CSSProperties = {
-  border: '1px solid #e5e7eb', borderRadius: 12, padding: 18, marginBottom: 16, background: '#fff',
-};
-const h2: React.CSSProperties = { margin: '0 0 4px', fontSize: 15, fontWeight: 700 };
-const sub: React.CSSProperties = { margin: '0 0 12px', fontSize: 12.5, color: '#6b7280' };
-const mono: React.CSSProperties = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 };
-
 function gbp(value: unknown): string | null {
   const amount = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN;
   if (!Number.isFinite(amount)) return null;
@@ -71,15 +64,15 @@ function AuditOptions({
 
   if (shops.length > 0) {
     return (
-      <ul style={{ margin: '8px 0 0', padding: 0, listStyle: 'none' }}>
+      <ul className="options mono">
         {shops.map((option, index) => (
-          <li key={`${option.shop}-${index}`} style={{ ...mono, padding: '3px 0', color: '#374151' }}>
+          <li key={`${option.shop}-${index}`}>
             {option.shop}
             {option.price ? ` · ${option.price}` : ''}
             {option.evidenceUrl ? (
               <>
                 {' · '}
-                <a href={option.evidenceUrl} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8' }}>
+                <a href={option.evidenceUrl} target="_blank" rel="noreferrer">
                   evidence
                 </a>
               </>
@@ -124,7 +117,7 @@ function AuditOptions({
   ].filter(Boolean);
 
   if (parts.length === 0) return null;
-  return <div style={{ ...mono, marginTop: 6, color: '#374151' }}>{parts.join(' · ')}</div>;
+  return <div className="mono detail">{parts.join(' · ')}</div>;
 }
 
 export default function Page() {
@@ -259,171 +252,148 @@ export default function Page() {
   const live = tokens.filter((t) => t.status === 'active');
   const totalRows = consumables.length + tokens.length + audit.length + consent.length + shopCount;
 
+  const choiceClass = (choice: string) =>
+    choice === 'allow' || choice === 'escalate' ? `choice choice-${choice}` : 'choice choice-deny';
+
   return (
-    <main style={{ fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif', maxWidth: 780, margin: '0 auto', padding: '32px 20px 64px', color: '#111827', background: '#f9fafb', minHeight: '100vh' }}>
-      <h1 style={{ fontSize: 26, margin: '0 0 4px' }}>Replenish Autopilot</h1>
-      <p style={{ ...sub, fontSize: 13.5 }}>Your cart runs itself — and only you can see what it knows.</p>
+    <>
+      <div className="bg-blobs" aria-hidden="true">
+        <div className="blob blob-a" />
+        <div className="blob blob-b" />
+        <div className="blob blob-c" />
+      </div>
+      <main className="shell">
+        <header className="hero">
+          <p className="eyebrow">Privacy panel</p>
+          <h1>Replenish Autopilot</h1>
+          <p className="lede">Your cart runs itself — and only you can see what it knows.</p>
+        </header>
 
-      <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={h2}>Signed in as {ACCOUNTS[who].label}</div>
-          <div style={{ ...sub, margin: 0 }}>
-            {ACCOUNTS[who].email} — this panel reads the database with <em>their</em> credentials.
+        <div className="card identity">
+          <div className="identity-copy">
+            <h2>Signed in as {ACCOUNTS[who].label}</h2>
+            <p className="sub flat">
+              {ACCOUNTS[who].email} — this panel reads the database with <em>their</em> credentials.
+            </p>
+          </div>
+          <div className="stat">
+            <div className="stat-value">{busy ? '…' : totalRows}</div>
+            <p className="sub flat">rows visible</p>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ ...mono, fontSize: 22, fontWeight: 700 }}>{busy ? '…' : totalRows}</div>
-          <div style={{ ...sub, margin: 0 }}>rows visible</div>
+
+        <div className="switcher">
+          {(Object.keys(ACCOUNTS) as Who[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => setWho(k)}
+              className={who === k ? 'btn btn-accent' : 'btn btn-ghost'}
+            >
+              View as {ACCOUNTS[k].label}
+            </button>
+          ))}
         </div>
-      </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {(Object.keys(ACCOUNTS) as Who[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => setWho(k)}
-            style={{
-              padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
-              border: '1px solid ' + (who === k ? '#111827' : '#d1d5db'),
-              background: who === k ? '#111827' : '#fff',
-              color: who === k ? '#fff' : '#374151',
-              fontWeight: who === k ? 600 : 400,
-            }}
-          >
-            View as {ACCOUNTS[k].label}
-          </button>
-        ))}
-      </div>
+        {who === 'demo' && (
+          <section className="card">
+            <h2>Run it</h2>
+            <p className="sub">Signal, then compare the shops, then order only if the live token allows it.</p>
+            <button
+              onClick={() => void runLoop()}
+              disabled={running || busy || live.length === 0}
+              className="btn btn-accent"
+            >
+              {running ? 'Running…' : 'Run replenishment'}
+            </button>
+            {runNote && <div className="mono run-note">{runNote}</div>}
+          </section>
+        )}
 
-      {who === 'demo' && (
-        <section style={card}>
-          <div style={h2}>Run it</div>
-          <p style={sub}>Signal, then compare the shops, then order only if the live token allows it.</p>
-          <button
-            onClick={() => void runLoop()}
-            disabled={running || busy || live.length === 0}
-            style={{
-              padding: '9px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13,
-              cursor: running || busy || live.length === 0 ? 'default' : 'pointer',
-              background: running || live.length === 0 ? '#d1d5db' : '#111827',
-              color: running || live.length === 0 ? '#6b7280' : '#fff',
-            }}
-          >
-            {running ? 'Running…' : 'Run replenishment'}
-          </button>
-          {runNote && <div style={{ ...mono, marginTop: 10, color: '#374151' }}>{runNote}</div>}
+        {error && <div className="card error">{error}</div>}
+
+        <section className="card">
+          <h2>What I let it watch</h2>
+          <p className="sub">Opt in per category. Everything else is invisible to the agent.</p>
+          {consent.length === 0 ? (
+            <p className="sub flat">Nothing granted.</p>
+          ) : (
+            <div className="pills">
+              {consent.map((c) => (
+                <span key={c.category} className={c.granted ? 'pill pill-on' : 'pill pill-off'}>
+                  {c.category}: {c.granted ? 'allowed' : 'off'}
+                </span>
+              ))}
+            </div>
+          )}
         </section>
-      )}
 
-      {error && (
-        <div style={{ ...card, borderColor: '#fca5a5', background: '#fef2f2', color: '#991b1b', fontSize: 13 }}>
-          {error}
-        </div>
-      )}
+        <section className="card">
+          <h2>What it actually knows about me</h2>
+          <p className="sub">No profile, no purchase history. This is the whole record.</p>
+          {consumables.length === 0 ? (
+            <p className="sub flat">No rows for this person.</p>
+          ) : (
+            consumables.map((c) => (
+              <div key={c.id} className="mono list-row">
+                {c.product_key} · every {c.cadence_days} days · empty {c.est_empty_date} · source {c.source}
+              </div>
+            ))
+          )}
+        </section>
 
-      <section style={card}>
-        <div style={h2}>What I let it watch</div>
-        <p style={sub}>Opt in per category. Everything else is invisible to the agent.</p>
-        {consent.length === 0 ? (
-          <div style={{ ...sub, margin: 0 }}>Nothing granted.</div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {consent.map((c) => (
-              <span key={c.category} style={{
-                ...mono, padding: '5px 11px', borderRadius: 999,
-                background: c.granted ? '#ecfdf5' : '#f3f4f6',
-                color: c.granted ? '#065f46' : '#6b7280',
-                border: '1px solid ' + (c.granted ? '#a7f3d0' : '#e5e7eb'),
-              }}>
-                {c.category}: {c.granted ? 'allowed' : 'off'}
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section style={card}>
-        <div style={h2}>What it actually knows about me</div>
-        <p style={sub}>No profile, no purchase history. This is the whole record.</p>
-        {consumables.length === 0 ? (
-          <div style={{ ...sub, margin: 0 }}>No rows for this person.</div>
-        ) : (
-          consumables.map((c) => (
-            <div key={c.id} style={{ ...mono, padding: '10px 0', borderTop: '1px solid #f3f4f6' }}>
-              {c.product_key} · every {c.cadence_days} days · empty {c.est_empty_date} · source {c.source}
-            </div>
-          ))
-        )}
-      </section>
-
-      <section style={card}>
-        <div style={h2}>What it&apos;s allowed to spend</div>
-        <p style={sub}>A capped, category-scoped, expiring token. It cannot overreach, even if it hallucinates.</p>
-        {tokens.length === 0 ? (
-          <div style={{ ...sub, margin: 0 }}>No tokens for this person.</div>
-        ) : (
-          tokens.map((t) => (
-            <div key={t.id} style={{
-              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-              padding: '12px 0', borderTop: '1px solid #f3f4f6',
-            }}>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <div style={{ ...mono, fontWeight: 600 }}>
-                  £{Number(t.max_amount).toFixed(2)} · {t.category_scope} · {new Date(t.expires_at).toLocaleDateString()}
+        <section className="card">
+          <h2>What it&apos;s allowed to spend</h2>
+          <p className="sub">A capped, category-scoped, expiring token. It cannot overreach, even if it hallucinates.</p>
+          {tokens.length === 0 ? (
+            <p className="sub flat">No tokens for this person.</p>
+          ) : (
+            tokens.map((t) => (
+              <div key={t.id} className="list-row token-row">
+                <div className="token-copy">
+                  <div className="mono token-title">
+                    £{Number(t.max_amount).toFixed(2)} · {t.category_scope} · {new Date(t.expires_at).toLocaleDateString()}
+                  </div>
+                  <p className="sub flat">{t.status === 'active' ? 'still live' : 'revoked'}</p>
                 </div>
-                <div style={{ ...sub, margin: 0 }}>{t.status === 'active' ? 'still live' : 'revoked'}</div>
+                {t.status === 'active' ? (
+                  <button onClick={() => revoke(t.id)} className="btn btn-danger">
+                    Revoke
+                  </button>
+                ) : (
+                  <span className="mono inert">— inert</span>
+                )}
               </div>
-              {t.status === 'active' ? (
-                <button
-                  onClick={() => revoke(t.id)}
-                  style={{ padding: '9px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: 13 }}
-                >
-                  Revoke
-                </button>
-              ) : (
-                <span style={{ ...mono, color: '#9ca3af' }}>— inert</span>
-              )}
-            </div>
-          ))
-        )}
-        {live.length === 0 && tokens.length > 0 && (
-          <p style={{ ...sub, margin: '12px 0 0', color: '#dc2626' }}>
-            No live tokens. The agent cannot spend a penny.
-          </p>
-        )}
-      </section>
+            ))
+          )}
+          {live.length === 0 && tokens.length > 0 && (
+            <p className="sub warn">No live tokens. The agent cannot spend a penny.</p>
+          )}
+        </section>
 
-      <section style={card}>
-        <div style={h2}>What it did, and why</div>
-        <p style={sub}>Every action, the options it compared, and the reason for its choice.</p>
-        {audit.length === 0 ? (
-          <div style={{ ...sub, margin: 0 }}>No activity for this person.</div>
-        ) : (
-          audit.map((r) => (
-            <div key={r.id} style={{ padding: '10px 0', borderTop: '1px solid #f3f4f6' }}>
-              <div style={{ ...mono, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <strong>{r.action}</strong>
-                <span style={{
-                  padding: '2px 8px', borderRadius: 999, fontSize: 11,
-                  background: r.choice === 'allow' ? '#ecfdf5' : r.choice === 'escalate' ? '#fffbeb' : '#fef2f2',
-                  color: r.choice === 'allow' ? '#065f46' : r.choice === 'escalate' ? '#92400e' : '#991b1b',
-                }}>
-                  {r.choice}
-                </span>
-                <span style={{ color: '#9ca3af', fontSize: 11.5 }}>
-                  {new Date(r.created_at).toLocaleTimeString()}
-                </span>
+        <section className="card">
+          <h2>What it did, and why</h2>
+          <p className="sub">Every action, the options it compared, and the reason for its choice.</p>
+          {audit.length === 0 ? (
+            <p className="sub flat">No activity for this person.</p>
+          ) : (
+            audit.map((r) => (
+              <div key={r.id} className="list-row">
+                <div className="mono audit-head">
+                  <strong>{r.action}</strong>
+                  <span className={choiceClass(r.choice)}>{r.choice}</span>
+                  <span className="when">{new Date(r.created_at).toLocaleTimeString()}</span>
+                </div>
+                <div className="reason">{r.reason}</div>
+                <AuditOptions inputs={r.inputs} options={r.options} shopNames={shopNames} />
               </div>
-              <div style={{ fontSize: 13, color: '#4b5563', marginTop: 3 }}>{r.reason}</div>
-              <AuditOptions inputs={r.inputs} options={r.options} shopNames={shopNames} />
-            </div>
-          ))
-        )}
-      </section>
+            ))
+          )}
+        </section>
 
-      <p style={{ ...sub, fontSize: 12, textAlign: 'center' }}>
-        Rows are scoped to you by row-level security. Switch identity above and the other person&apos;s view is empty.
-      </p>
-    </main>
+        <p className="footnote">
+          Rows are scoped to you by row-level security. Switch identity above and the other person&apos;s view is empty.
+        </p>
+      </main>
+    </>
   );
 }
