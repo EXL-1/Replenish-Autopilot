@@ -6,7 +6,7 @@
 > that makes your cart safe to hand over.
 
 Grok Bot Commerce · London Hackathon — Fleek HQ, 26 September 2026
-**Team:** Lucas Malik (trust layer) · Gabriel Moura (brain + face)
+**Track:** Agentic Commerce · **Team:** Lucas Malik (trust layer) · Gabriel Moura (brain + face)
 
 **Live:** https://replenish-autopilot.vercel.app
 **Run sheet:** [`docs/RUNSHEET.md`](./docs/RUNSHEET.md)
@@ -34,7 +34,7 @@ wallet is allowed to open — and proves, afterwards, exactly what it did and wh
 5. **Order** — a real order on a real Shopify store, in test mode.
 6. **Audit** — every decision logs the inputs, the options compared, the choice and the reason.
 
-Open the live URL and press **Run replenishment** to see all six steps in one click.
+Open the live URL and press **Check prices & reorder** to see all six steps in one click.
 
 ## Where Grok sits — the decision, not the spend
 
@@ -53,12 +53,14 @@ decide:
 - Any failure — missing key, HTTP error, timeout, junk JSON — falls back to the deterministic
   template reason. The demo finishes either way.
 
-The audit line it produces is the most interesting thing on the screen:
+The sentence it produces appears under **Prices checked** in the panel's activity list
+(the panel words "spending mandate" as "spending permission"):
 
-> *"Order placed at Shopify Dev Store per the spending mandate even though Waitrose has the
-> lowest price found at £13.50."*
+> *"Order placed at Shopify Dev Store because it matched your spending permission even though
+> Waitrose has the lowest price found at £13.50."*
 
 That is a real contradiction, explained: the cheapest shop is not the shop the mandate allows.
+The status line under the button says the same thing while the order runs.
 
 Model picked by measurement, not vibes: `grok-4.3` took 8.3s, `grok-4.5` took 9.7s *and got the
 situation wrong*, `grok-4.20-0309-non-reasoning` takes ~1s and is correct.
@@ -93,8 +95,8 @@ anything on its own — a spend token and the policy engine sit between both of 
 ### The privacy panel proves it rather than asserting it
 
 The panel reads the database with **the signed-in user's own credentials and the public anon
-key** — no service-role key reaches the browser. The **"View as"** toggle signs in as a second
-account and shows the same panel, empty. That is row-level security demonstrated on screen,
+key** — no service-role key reaches the browser. The account menu (**Signed in as** → **View as
+Someone else**) signs in as a second account and shows the same page, empty. That is row-level security demonstrated on screen,
 not described on a slide.
 
 ## Security model
@@ -114,7 +116,7 @@ routes enforce their own rules:
 
 | Check | Result |
 |---|---|
-| Full sequence, end to end | **7/7 pass, ~9s** (against a 180s demo budget) |
+| Full sequence, end to end | **7/7 pass, ~13s** (against a 120s demo budget) |
 | Grok explanation | `explained_by: grok`, ~1s; falls back to the template reason if the model is slow, down, or returns junk |
 | Policy engine | `npm run check:policy` — 7/7 (cap, category, TTL, revoke, wrong shop, no token) |
 | Live price compare | 3 shops, stable pick, evidence URLs |

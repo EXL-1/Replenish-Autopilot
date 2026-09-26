@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { browserClient } from '@/lib/supabase-browser';
+import type { ReorderSignal } from '@/lib/types';
 
 const PASSWORD = 'ReplenishDemo2026';
 const ACCOUNTS = {
@@ -295,6 +296,7 @@ export default function Page() {
   const [running, setRunning] = useState(false);
   const [runNote, setRunNote] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [selectedConsumableId, setSelectedConsumableId] = useState<string | null>(null);
   const accountRef = useRef<HTMLElement>(null);
 
   const load = useCallback(async (key: Who) => {
@@ -356,7 +358,7 @@ export default function Page() {
     };
   }, [accountOpen]);
 
-  async function runLoop() {
+  async function runLoop(targetConsumable?: Consumable) {
     const token = tokens.find((t) => t.status === 'active');
     if (!userId || !token || running) return;
     setRunning(true);
@@ -373,7 +375,21 @@ export default function Page() {
       const signalRes = await fetch(`/api/signal?user_id=${userId}`, { headers: authHeader });
       const signalJson = await signalRes.json();
       if (!signalRes.ok) throw new Error(signalJson.error ?? 'signal failed');
-      const signal = signalJson.signals?.[0];
+      const signals = (signalJson.signals ?? []) as ReorderSignal[];
+      
+      // Select the specific consumable if chosen, otherwise the first due signal
+      const signal = targetConsumable
+        ? signals.find((s) => s.consumable_id === targetConsumable.id) ?? {
+            consumable_id: targetConsumable.id,
+            product_key: targetConsumable.product_key,
+            est_empty_date: targetConsumable.est_empty_date,
+            days_until_empty: Math.ceil(
+              (new Date(targetConsumable.est_empty_date).getTime() - Date.now()) / 86_400_000,
+            ),
+            source: (targetConsumable.source as ReorderSignal['source']) ?? 'csv_seed',
+          }
+        : signals[0];
+
       if (!signal) {
         setRunNote('Nothing is due. No order placed.');
         return;
@@ -442,12 +458,73 @@ export default function Page() {
     await load(who);
   }
 
+  async function toggleConsent(category: string, currentGranted: boolean) {
+    const nextGranted = !currentGranted;
+    // Optimistic UI update
+    setConsent((prev) =>
+      prev.map((c) => (c.category === category ? { ...c, granted: nextGranted } : c)),
+    );
+    try {
+      const sb = browserClient();
+      await sb
+        .from('consent')
+        .update({
+          granted: nextGranted,
+          revoked_at: nextGranted ? null : new Date().toISOString(),
+        })
+        .eq('category', category);
+    } catch {
+      await load(who);
+    }
+  }
+
+  async function updateCap(token: Token, newAmount: number) {
+    if (newAmount <= 0) return;
+    setTokens((prev) =>
+      prev.map((t) => (t.id === token.id ? { ...t, max_amount: newAmount.toFixed(2) } : t)),
+    );
+    try {
+      const sb = browserClient();
+      await sb
+        .from('spend_tokens')
+        .update({ max_amount: newAmount.toFixed(2) })
+        .eq('id', token.id);
+    } catch {
+      await load(who);
+    }
+  }
+
+  async function resumeSpending() {
+    if (!userId) return;
+    // Look up shop
+    const primaryShopId = Object.keys(shopNames)[0];
+    if (!primaryShopId) return;
+
+    try {
+      const sb = browserClient();
+      await sb.from('spend_tokens').insert({
+        user_id: userId,
+        shop_id: primaryShopId,
+        max_amount: '40.00',
+        category_scope: 'consumables',
+        status: 'active',
+        issued_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      });
+      await load(who);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed to resume spending');
+    }
+  }
+
   const live = tokens.filter(
     (t) => t.status === 'active' && new Date(t.expires_at).getTime() > Date.now(),
   );
   const activeToken = live[0];
   const previousTokens = tokens.filter((t) => t.id !== activeToken?.id);
-  const primaryConsumable = consumables[0];
+  const selectedConsumable =
+    consumables.find((c) => c.id === selectedConsumableId) ?? consumables[0];
+  const primaryConsumable = selectedConsumable;
   const allowedConsent = consent.filter((item) => item.granted);
   const recentAudit = audit.slice(0, 4);
   const olderAudit = audit.slice(4);
@@ -529,8 +606,28 @@ export default function Page() {
                       : 'A new spending permission is needed before Replenish can place an order.'}
                   </p>
                   <div className="action-controls">
+                    {consumables.length > 1 && (
+                      <div className="product-selector" aria-label="Choose product to refill">
+                        <span className="product-selector-label">Select refill:</span>
+                        <div className="product-pills">
+                          {consumables.map((item) => {
+                            const isSelected = item.id === primaryConsumable?.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className={isSelected ? 'product-pill product-pill-active' : 'product-pill'}
+                                onClick={() => setSelectedConsumableId(item.id)}
+                              >
+                                {humanise(item.product_key)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <button
-                      onClick={() => void runLoop()}
+                      onClick={() => void runLoop(primaryConsumable)}
                       disabled={running || busy || !activeToken || !primaryConsumable}
                       className="btn btn-accent btn-primary-action"
                     >
@@ -540,7 +637,7 @@ export default function Page() {
                           ? 'Reordering paused'
                           : !primaryConsumable
                             ? 'Nothing to reorder'
-                            : 'Check prices & reorder'}
+                            : `Check prices & reorder ${primaryConsumable ? humanise(primaryConsumable.product_key).toLowerCase() : ''}`}
                     </button>
                     <span>Demo mode: creates a Shopify test order. No money is charged.</span>
                   </div>
@@ -619,7 +716,20 @@ export default function Page() {
                     ) : (
                       <ul className="permission-list">
                         {consent.map((item) => (
-                          <li key={item.category}>
+                          <li
+                            key={item.category}
+                            onClick={() => void toggleConsent(item.category, item.granted)}
+                            className="permission-item-clickable"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                void toggleConsent(item.category, item.granted);
+                              }
+                            }}
+                            title={`Click to ${item.granted ? 'revoke' : 'grant'} permission for ${humanise(item.category)}`}
+                          >
                             <span
                               className={item.granted ? 'permission-mark permission-mark-on' : 'permission-mark'}
                               aria-hidden="true"
@@ -632,7 +742,7 @@ export default function Page() {
                         ))}
                       </ul>
                     )}
-                    <p className="card-note">Everything else stays invisible to the agent.</p>
+                    <p className="card-note">Click any category to toggle what the agent can see.</p>
                   </article>
 
                   <article className="card safeguard-card">
@@ -652,6 +762,21 @@ export default function Page() {
                           {gbp(activeToken.max_amount)}
                           <span>maximum per order</span>
                         </div>
+                        <div className="cap-selector" aria-label="Preset spending limits">
+                          {[10, 25, 40, 60].map((preset) => {
+                            const isCurrent = Math.abs(Number(activeToken.max_amount) - preset) < 0.01;
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                className={isCurrent ? 'cap-pill cap-pill-active' : 'cap-pill'}
+                                onClick={() => void updateCap(activeToken, preset)}
+                              >
+                                £{preset}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <dl className="limit-details">
                           <div>
                             <dt>For</dt>
@@ -670,6 +795,13 @@ export default function Page() {
                       <div className="paused-state">
                         <strong>Automatic spending is off</strong>
                         <p>Replenish cannot place an order.</p>
+                        <button
+                          onClick={() => void resumeSpending()}
+                          className="btn btn-accent btn-resume"
+                          style={{ marginTop: 14, width: '100%' }}
+                        >
+                          Resume automatic spending (£40 limit)
+                        </button>
                       </div>
                     )}
                     {previousTokens.length > 0 && (
