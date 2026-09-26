@@ -63,6 +63,22 @@ That is a real contradiction, explained: the cheapest shop is not the shop the m
 Model picked by measurement, not vibes: `grok-4.3` took 8.3s, `grok-4.5` took 9.7s *and got the
 situation wrong*, `grok-4.20-0309-non-reasoning` takes ~1s and is correct.
 
+## The sponsor stack, and what each one actually does
+
+Nothing here is a logo on a slide — every one of these is load-bearing:
+
+| | Used for |
+|---|---|
+| **Cursor** | The entire build, including the trust layer and this README |
+| **Grok Bots** | A `Replenish` bot carries the reordering job. Message it *"coffee is running low"* and it attempts the spend — and is refused, which is the point |
+| **Grok (xAI API)** | Writes the explanation on every compare decision. Explains, never authorises — see above |
+| **Shopify** | A real dev store. Real order objects, `test: true`, charged amount stored verbatim |
+| **Supabase** | Postgres + **RLS** for user-owned data, and Auth: the JWT that every API route requires |
+
+The Grok Bot and the Grok API are deliberately different roles: the **bot is the agent** that
+wants to spend, and the **API call is the reasoning** the panel shows. Neither one can authorise
+anything on its own — a spend token and the policy engine sit between both of them and your card.
+
 
 ## Privacy architecture — the differentiator
 
