@@ -26,8 +26,8 @@ second run has no live token.
 recreates the consumable, and any agent still holding the old ids will fail its next order.
 
 Then open a browser tab on **https://replenish-autopilot.vercel.app** and leave it there.
-Confirm you can see "Signed in as Demo shopper" and a **Run replenishment** button that is
-*not* greyed out.
+Confirm the panel reads **"SIGNED IN AS Demo shopper"**, that the card says *"Coffee beans
+1kg is due in 4 days"*, and that **Check prices & reorder** is clickable.
 
 ---
 
@@ -42,34 +42,38 @@ Confirm you can see "Signed in as Demo shopper" and a **Run replenishment** butt
 
 This is the whole pitch. If you get only one sentence out, get that one out.
 
-### 0:15 — Consent (`What I let it watch`)
+### 0:15 — Consent (`What Replenish can see`)
 
 > "It watches exactly one category. Consumables — on. Household — on.
 > Electronics — off. That's not a preference screen, that's the boundary of what it can see."
 
-**Do:** Point at the three chips. Don't click anything.
+**Do:** Point at the **ACCESS** block. `Consumables — Allowed`, `Household — Allowed`,
+`Electronics — Not shared`. Don't click anything.
 
-### 0:30 — Minimisation (`What it actually knows about me`)
+### 0:30 — Minimisation (`What Replenish knows`)
 
 > "This is the entire record of what it knows about me. One line.
 > Not my profile, not my purchase history, not my browsing. One row: what I bought,
 > how often, and when it runs out."
 
-**Do:** Read the single row aloud — `coffee_beans_1kg · every 28 days · empty 2026-09-30`.
+**Do:** Read the single row aloud — *"Coffee beans 1kg · Expected to run out 30 Sept 2026 ·
+usually lasts 28 days"*. Note the line under it: **"That's the whole record."**
 
-### 0:45 — The token (`What it's allowed to spend`)
+### 0:45 — The token (`Your safeguards`)
 
 > "This is what it's allowed to spend. Forty pounds. Consumables only.
 > It expires tomorrow at this time whether I use it or not.
 > A cap, a category, an expiry — and it can't talk its way past any of them."
 
-**Do:** Hover the **Revoke** button but don't click yet.
+**Do:** Point at the **SPENDING** block — *"£40.00 maximum per order · Consumables only ·
+Until 27 Sept 2026"*. Point at **Turn off automatic spending** but don't click it yet.
 
 ### 1:00 — Run it
 
 > "So let's let it shop."
 
-**Do:** Click **Run replenishment**. Narrate what appears in the status line:
+**Do:** Click **Check prices & reorder**. Narrate what appears:
+
 
 - *"Checking what is about to run out."*
 - *"Coffee is four days out. Comparing shops."*
@@ -78,12 +82,14 @@ This is the whole pitch. If you get only one sentence out, get that one out.
 
 **This is the live moment.** If it's slow, narrate the wait — don't apologise for it.
 
-### 1:30 — The audit trail (`What it did, and why`)
+### 1:30 — The audit trail (`Recent activity`)
 
 > "Here's the part I'd want if I were you. Every decision, the options it compared,
 > and the reason. Not a log — a *receipt*."
 
-**Do:** Point at the newest three rows:
+**Do:** The two newest cards appear on their own — a `✓ Order placed` and a `£ Prices checked`.
+**The refusal is now hidden**: click **Show N earlier events** to reveal the `Order blocked`
+row. Do that on stage — it is the strongest thing in the demo and it is behind a click.
 
 - `compare` — with all three shops and their prices, and a link to where each price came from
 - `order.placed` — `Shopify Dev Store · £12.00 (asked £13.50)`
@@ -95,7 +101,8 @@ That third line is the strongest thing on the screen: **the agent tried, and was
 
 > "And when I've had enough —"
 
-**Do:** Click **Revoke**. The token goes grey and reads *inert*.
+**Do:** Click **Turn off automatic spending**. It reads **Off**, and the permission count
+updates.
 
 > "— it's done. Not paused, not gated behind a setting. It cannot spend a penny."
 
@@ -103,7 +110,9 @@ That third line is the strongest thing on the screen: **the agent tried, and was
 
 > "One last thing. I said only I can see what it knows."
 
-**Do:** Click **View as Someone else**. Same panel, same screen — **empty**. Then click back to **View as Demo shopper**.
+**Do:** Click the **SIGNED IN AS — Demo shopper** control at the top of the panel (account
+switching now lives in that menu). Choose the other account. Same panel, same screen —
+**empty**. Then switch back.
 
 > "Same code, same database, different person. The locks are real, not UI."
 
@@ -115,13 +124,16 @@ That third line is the strongest thing on the screen: **the agent tried, and was
 
 | Symptom | What to do |
 |---|---|
-| Run button is greyed out | You forgot `npm run reset:demo`. Say "let me reset the demo state" and rerun it — takes 2 seconds. |
+| The reorder button won't work | You forgot `npm run reset:demo`. Say "let me reset the demo state" and rerun it — takes 2 seconds. |
 | Compare is slow (>10s) | It's calling live price APIs. Keep talking: *"it's checking three shops in real time."* Don't click twice. |
 | An API error appears in red | Read it out. The error messages are written to be legible and honest. Then fall back to the recorded video. |
 | Order says `escalate` | That means the cheapest price exceeded the cap — a *good* outcome. *"It refused to overspend."* |
 | Total network failure | Play the recorded fallback. Mention it's a recording. Don't debug live. |
 
-**Never** click Revoke before the audit-trail beat. It's the ending, and it's irreversible.
+**Never** click **Turn off automatic spending** before the audit-trail beat. It's the
+ending, and it's irreversible.
+
+**Turn it back on after the demo** if you're demoing again — or just rerun `npm run reset:demo`.
 
 ---
 
