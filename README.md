@@ -1,7 +1,6 @@
 # Replenish Autopilot
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-replenish--autopilot.vercel.app-blue?style=flat-square)](https://replenish-autopilot.vercel.app)
-[![Demo Video](https://img.shields.io/badge/YouTube-120s%20Walkthrough-red?style=flat-square&logo=youtube)](https://youtu.be/C9deNSU-Vvk)
 [![Event](https://img.shields.io/badge/Hackathon-Grok%20Bot%20Commerce%202026-black?style=flat-square)](https://fleek.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
